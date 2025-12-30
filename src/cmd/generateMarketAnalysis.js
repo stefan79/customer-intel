@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import { legalName, domain, industries } from "../model.js"
+import { legalName, domain, industries, markets } from "../model.js"
 import ValidationCreator from "../util/request.js"
 import { generatePrompt } from "../util/openai.js";
 import Model from "../model.js"
@@ -83,12 +83,11 @@ export default async function (request) {
   const analysis = response.output_text
 
   const result =  {
-    domain,
+    domain: req.domain,
     analysis
   }
 
-  marketAnalysis.validate(result)
+  model.validate(result)
 
   return result
 }
-

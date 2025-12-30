@@ -1,8 +1,8 @@
 import { Resource } from "sst";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { getClient } from "../../weaviate.js";
-import GenerateAssessment, {requestValidator} from "../../cmd/generateAssessment.js"
-import Model, { industries, revenueInMio } from "../../model.js";
+import GenerateAssessment, { requestValidator } from "../../cmd/generateAssessment.js";
+import Model from "../../model.js";
 
 const sqs = new SQSClient({});
 const model = Model.companyAssessment

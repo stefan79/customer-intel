@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { Resource } from "sst";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { getClient } from "../../weaviate.js";

@@ -35,30 +35,32 @@ export async function insertObject(client, objectId, properties, collectionName)
 export function unwrapZodType(schema) {
   let current = schema;
   // Unwrap common wrappers to reach the base schema.
-  while (true) {
+  let isWrapped = true;
+  while (isWrapped) {
+    isWrapped = false;
     const typeName = current?._def?.typeName;
     if (typeName === z.ZodFirstPartyTypeKind.ZodOptional) {
       current = current._def.innerType;
-      continue;
+      isWrapped = true;
     }
     if (typeName === z.ZodFirstPartyTypeKind.ZodNullable) {
       current = current._def.innerType;
-      continue;
+      isWrapped = true;
     }
     if (typeName === z.ZodFirstPartyTypeKind.ZodDefault) {
       current = current._def.innerType;
-      continue;
+      isWrapped = true;
     }
     if (typeName === z.ZodFirstPartyTypeKind.ZodEffects) {
       current = current._def.schema;
-      continue;
+      isWrapped = true;
     }
     if (typeName === z.ZodFirstPartyTypeKind.ZodBranded) {
       current = current._def.type;
-      continue;
+      isWrapped = true;
     }
-    return current;
   }
+  return current;
 }
 
 function getShape(schema) {
@@ -66,7 +68,7 @@ function getShape(schema) {
   return typeof shape === "function" ? shape() : shape;
 }
 
-function mapPrimitiveType(schema, options) {
+function mapPrimitiveType(schema) {
   const typeName = schema._def.typeName;
   if (typeName === z.ZodFirstPartyTypeKind.ZodString) {
     return "text";
@@ -101,24 +103,24 @@ function mapPrimitiveType(schema, options) {
   return null;
 }
 
-function mapArrayType(schema, options) {
+function mapArrayType(schema) {
   const element = unwrapZodType(schema._def.type);
   const elementTypeName = element._def.typeName;
   if (elementTypeName === z.ZodFirstPartyTypeKind.ZodObject) {
     return {
       dataType: "object[]",
-      nestedProperties: mapZodToWeaviateProperties(element, options),
+      nestedProperties: mapZodToWeaviateProperties(element),
     };
   }
 
-  const primitive = mapPrimitiveType(element, options);
+  const primitive = mapPrimitiveType(element);
   if (!primitive) {
     throw new Error(`Unsupported array element type: ${elementTypeName}`);
   }
   return { dataType: `${primitive}[]` };
 }
 
-function mapProperty(name, schema, options) {
+function mapProperty(name, schema) {
   const base = unwrapZodType(schema);
   const typeName = base._def.typeName;
   const description = base._def.description;
@@ -128,12 +130,12 @@ function mapProperty(name, schema, options) {
       name,
       dataType: "object",
       description,
-      nestedProperties: mapZodToWeaviateProperties(base, options),
+      nestedProperties: mapZodToWeaviateProperties(base),
     };
   }
 
   if (typeName === z.ZodFirstPartyTypeKind.ZodArray) {
-    const mapped = mapArrayType(base, options);
+    const mapped = mapArrayType(base);
     return {
       name,
       description,
@@ -141,7 +143,7 @@ function mapProperty(name, schema, options) {
     };
   }
 
-  const primitive = mapPrimitiveType(base, options);
+  const primitive = mapPrimitiveType(base);
   if (!primitive) {
     throw new Error(`Unsupported Zod type for "${name}": ${typeName}`);
   }
@@ -162,6 +164,6 @@ export function mapZodToWeaviateProperties(schema) {
 
   const shape = getShape(base);
   return Object.entries(shape).map(([name, propSchema]) =>
-    mapProperty(name, propSchema, {}),
+    mapProperty(name, propSchema),
   );
 }

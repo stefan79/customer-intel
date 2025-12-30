@@ -12,10 +12,14 @@
   "description": "Manages Customer Intelligence to prepare meetings",
   "main": "index.js",
   "devDependencies": {
-    "@types/aws-lambda": "8.10.159"
+    "@types/aws-lambda": "8.10.159",
+    "ejs-lint": "2.0.0",
+    "eslint": "8.57.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
+    "lint:ejs": "ejs-lint \"**/*.ejs\""
   },
   "author": "",
   "license": "ISC"
