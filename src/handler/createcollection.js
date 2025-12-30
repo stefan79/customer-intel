@@ -21,6 +21,7 @@ async function ensureCollection(client, { collectionName, collectionDefinition},
     }
     await client.collections.delete(collectionName);
   }
+  console.log("Creating with the definition. ", collectionDefinition)
   await client.collections.create(collectionDefinition);
 }
 
@@ -29,8 +30,8 @@ export async function handler(event) {
   const overwrite = coerceBoolean(event?.overwrite ?? false);
 
   await ensureCollection(client, Model.companyAssessment, overwrite);
-  await ensureCollection(client, Model.companyMasterData, overwrite);
-  await ensureCollection(client, Model.competingCompanies, overwrite);
   await ensureCollection(client, Model.marketAnalysis, overwrite);
   await ensureCollection(client, Model.companyNews, overwrite);
+  await ensureCollection(client, Model.companyMasterData, overwrite);
+  await ensureCollection(client, Model.competingCompanies, overwrite);
 }

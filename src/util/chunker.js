@@ -14,7 +14,8 @@ export function chunkTextWink(
   text,
   { maxWords = 120, overlapWords = 25 } = {}
 ) {
-  const tokens = tokenizer.tokenize(text);
+  const safeText = typeof text === "string" ? text : "";
+  const tokens = tokenizer.tokenize(safeText);
 
   const sentences = [];
   let currentSentence = [];

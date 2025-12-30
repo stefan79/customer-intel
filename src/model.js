@@ -1,4 +1,5 @@
 import { mapZodToWeaviateProperties } from "./weaviate.js";
+import { vectors, configure } from 'weaviate-client';
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 import { fetchObject, insertObject, linkObject} from "./weaviate";
@@ -87,7 +88,7 @@ const COMPETING_COMPANIES_COLLECTION = "CompetingCompanies";
 const MARKET_ANALYSIS_COLLECTION = "MarketAnalysis";
 const COMPANY_NEWS_COLLECTION = "CompanyNews";
 
-const generateModelRegistryEntry = (zodSchema, collectionName, idName, references, vectors) => {
+const generateModelRegistryEntry = (zodSchema, collectionName, idName, references, vectorNamesList) => {
   return {
     openAIFormat: {
       text: {
@@ -119,10 +120,12 @@ const generateModelRegistryEntry = (zodSchema, collectionName, idName, reference
       name: collectionName,
       properties: mapZodToWeaviateProperties(zodSchema),
       references: createCollectionReferences(references),
-      vectorConfig: vectors.reduce((acc, vector) => {
-        acc[vector] = { vectorIndexType: "hnsw" };
-        return acc;
-      }, {})
+      vectorizers: vectorNamesList.map(name => {
+        return vectors.selfProvided({
+          name,
+          vectorIndexConfig: configure.vectorIndex.hnsw()
+        })
+      })
     },
     idName,
     references,
@@ -147,6 +150,7 @@ const registry = {
     {
       "assessment": COMPANY_ASSESSMENT_COLLECTION,
       "marketAnalysis": MARKET_ANALYSIS_COLLECTION,
+      "news": COMPANY_NEWS_COLLECTION,
     },
     []
   ),
@@ -169,14 +173,14 @@ const registry = {
     MARKET_ANALYSIS_COLLECTION,
     "domain",
     {},
-    ["swot"]
+    []
   ),
   companyNews: generateModelRegistryEntry(
     companyNews,
     COMPANY_NEWS_COLLECTION,
     "source",
     {},
-    []
+    ["newsAnalysisLense"]
   ),
 };
 

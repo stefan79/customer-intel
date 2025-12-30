@@ -3,7 +3,6 @@ import GenerateMarketAnalysis, {
   requestValidator,
 } from "../../cmd/generateMarketAnalysis.js";
 import Model from "../../model.js";
-import EmbedMarketAnalysis from "../../cmd/embedMarketAnalysis.js"
 
 const model = Model.marketAnalysis;
 
@@ -18,10 +17,8 @@ export async function handler(event) {
     if (!foundEntry) {
       console.log("Could not find market analysis, will generate.", req.domain);
       analysis = await GenerateMarketAnalysis(req);
+      await model.insertObject(wv, analysis)
       const master = await Model.companyMasterData.fetchObject(wv, req.domain)
-      const assessment = await Model.companyAssessment.fetchObject(wv, req.domain)
-      const vectors = await EmbedMarketAnalysis(master, assessment, analysis)
-      await model.insertObject(wv, analysis, vectors);
       await Model.companyMasterData.linkObjects(wv, "marketAnalysis", master, analysis)
     } else {
       console.log("Found market analysis, will skip", req.domain);

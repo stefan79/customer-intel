@@ -20,6 +20,8 @@ export default $config({
     const AssessmentQueueDLQ = new sst.aws.Queue("AssessmentQueueDLQ", {})
     const CompetitionQueueDLQ = new sst.aws.Queue("CompetitionQueueDLQ", {})
     const MarketAnalysisQueueDLQ = new sst.aws.Queue("MarketAnalysisQueueDLQ", {})
+    const NewsQueueDLQ = new sst.aws.Queue("NewsQueueDLQ", {})
+    const DownloadQueueDLQ = new sst.aws.Queue("DownloadQueueDLQ", {})
 
     const AssessmentQueue = new sst.aws.Queue("AssessmentQueue", {
       dlq: {
@@ -42,10 +44,24 @@ export default $config({
       },
     });
 
+    const NewsQueue = new sst.aws.Queue("NewsQueue", {
+      dlq: {
+        queue: NewsQueueDLQ.arn,
+        retry: maxReceiveCount,
+      },
+    });
+
+    const DownloadQueue = new sst.aws.Queue("DownloadQueue", {
+      dlq: {
+        queue: DownloadQueueDLQ.arn,
+        retry: maxReceiveCount,
+      },
+    });
+
 
     AssessmentQueue.subscribe({
       handler: "src/handler/assessment/subscribe.downstream.handler", 
-      link: [OpenAIApiKey, WeaviateAPIKey, CompetitionQueue, MarketAnalysisQueue],
+      link: [OpenAIApiKey, WeaviateAPIKey, CompetitionQueue, MarketAnalysisQueue, NewsQueue],
       environment: {
         WeaviateEndpoint
       }
@@ -65,6 +81,19 @@ export default $config({
       environment: {
         WeaviateEndpoint
       }
+    })
+
+    NewsQueue.subscribe({
+      handler: "src/handler/news/subscribe.fanout.handler",
+      link: [OpenAIApiKey, WeaviateAPIKey, DownloadQueue],
+      environment: {
+        WeaviateEndpoint
+      }
+    })
+
+    DownloadQueue.subscribe({
+      handler: "src/handler/loadintovectorstore/subscribe.poll.handler",
+      link: [OpenAIApiKey],
     })
 
     new sst.aws.Function("MasterDataCallDownStreamHandler", {

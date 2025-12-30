@@ -21,6 +21,14 @@ declare module "sst" {
       "type": "sst.aws.Queue"
       "url": string
     }
+    "DownloadQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "DownloadQueueDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
     "MarketAnalysisQueue": {
       "type": "sst.aws.Queue"
       "url": string
@@ -32,6 +40,14 @@ declare module "sst" {
     "MasterDataCallDownStreamHandler": {
       "name": string
       "type": "sst.aws.Function"
+    }
+    "NewsQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "NewsQueueDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
     }
     "OpenAIApiKey": {
       "type": "sst.sst.Secret"

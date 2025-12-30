@@ -35,7 +35,7 @@ Source rules:
 - Avoid low-quality listicles or scraped aggregators.
 
 Output rules:
-- Return up to 20 items, newest first when possible.
+- Return up to 20 items
 - Only include items with a clear publication date.
 - Do not include duplicates or multiple entries for the same source URL.
 - Set "domain" to "<%= req.domain %>" for every item.
@@ -46,7 +46,9 @@ Output rules:
 const model = Model.companyNews;
 const listFormat = {
   text: {
-    format: zodTextFormat(z.array(model.zodSchema), "CompanyNewsList"),
+    format: zodTextFormat(z.object({
+      list: z.array(model.zodSchema), 
+    }), "CompanyNewsList"),
   },
 };
 
@@ -61,5 +63,5 @@ export default async function (request) {
     ...prompt,
     ...listFormat,
   });
-  return response.output_parsed
+  return response.output_parsed.list
 }

@@ -8,3 +8,4 @@ export function generatePrompt(template, context) {
     ])
     return Object.fromEntries(entries)
 }
+
