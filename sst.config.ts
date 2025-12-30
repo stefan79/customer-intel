@@ -19,6 +19,7 @@ export default $config({
 
     const AssessmentQueueDLQ = new sst.aws.Queue("AssessmentQueueDLQ", {})
     const CompetitionQueueDLQ = new sst.aws.Queue("CompetitionQueueDLQ", {})
+    const MarketAnalysisQueueDLQ = new sst.aws.Queue("MarketAnalysisQueueDLQ", {})
 
     const AssessmentQueue = new sst.aws.Queue("AssessmentQueue", {
       dlq: {
@@ -34,10 +35,17 @@ export default $config({
       },
     });
 
+    const MarketAnalysisQueue = new sst.aws.Queue("MarketAnalysisQueue", {
+      dlq: {
+        queue: MarketAnalysisQueueDLQ.arn,
+        retry: maxReceiveCount,
+      },
+    });
+
 
     AssessmentQueue.subscribe({
       handler: "src/handler/assessment/subscribe.downstream.handler", 
-      link: [OpenAIApiKey, WeaviateAPIKey, CompetitionQueue],
+      link: [OpenAIApiKey, WeaviateAPIKey, CompetitionQueue, MarketAnalysisQueue],
       environment: {
         WeaviateEndpoint
       }
@@ -45,6 +53,14 @@ export default $config({
 
     CompetitionQueue.subscribe({
       handler: "src/handler/competition/subscribe.downstream.handler",
+      link: [OpenAIApiKey, WeaviateAPIKey],
+      environment: {
+        WeaviateEndpoint
+      }
+    })
+
+    MarketAnalysisQueue.subscribe({
+      handler: "src/handler/marketanalysis/subscribe.downstream.handler",
       link: [OpenAIApiKey, WeaviateAPIKey],
       environment: {
         WeaviateEndpoint

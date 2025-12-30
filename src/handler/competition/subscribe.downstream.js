@@ -19,8 +19,6 @@ export async function handler(event) {
     } else {
       console.log("Found competition list, will skip", req.domain);
     }
-
-    console.log(competition);
   }
 
   return {

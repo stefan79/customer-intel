@@ -1,22 +1,36 @@
-import { getClient, mapZodToWeaviateProperties } from "../weaviate.js";
+import { getClient } from "../weaviate.js";
 import Model from "../model.js";
 
-async function resetCollection(client, {zodSchema, collectionName}) {
-  console.log("Ready to reset: ", collectionName)
-  const exists = await client.collections.exists(collectionName);
-  if (exists) {
-    await client.collections.delete(collectionName);
+function coerceBoolean(value) {
+  if (typeof value === "boolean") {
+    return value;
   }
-  await client.collections.create({
-    name: collectionName,
-    properties: mapZodToWeaviateProperties(zodSchema),
-  });
+  if (typeof value === "string") {
+    return value.toLowerCase() === "true";
+  }
+  return false;
 }
 
-export async function handler() {
-  const client = await getClient();
+async function ensureCollection(client, { collectionName, collectionDefinition}, overwrite) {
+  console.log("Preparing collection:", collectionName, "overwrite:", overwrite);
+  const exists = await client.collections.exists(collectionName);
+  if (exists) {
+    if (!overwrite) {
+      console.log("Collection exists, skipping:", collectionName);
+      return;
+    }
+    await client.collections.delete(collectionName);
+  }
+  await client.collections.create(collectionDefinition);
+}
 
-  await resetCollection(client, Model.companyAssessment);
-  await resetCollection(client, Model.companyMasterData);
-  await resetCollection(client, Model.competingCompanies);
+export async function handler(event) {
+  const client = await getClient();
+  const overwrite = coerceBoolean(event?.overwrite ?? false);
+
+  await ensureCollection(client, Model.companyAssessment, overwrite);
+  await ensureCollection(client, Model.companyMasterData, overwrite);
+  await ensureCollection(client, Model.competingCompanies, overwrite);
+  await ensureCollection(client, Model.marketAnalysis, overwrite);
+  await ensureCollection(client, Model.companyNews, overwrite);
 }

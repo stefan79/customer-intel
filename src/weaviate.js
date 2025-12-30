@@ -19,16 +19,34 @@ export async function fetchObject(client, id, collectionName){
   return response?.properties
 }
 
-export async function insertObject(client, objectId, properties, collectionName){
+export async function insertObject(client, objectId, properties, collectionName, vectors){
   const collection = client.collections.use(collectionName)
   const id = generateUuid5(objectId)
-
-  const uuid = await collection.data.insert({
+  const req = {
     properties,
     id
-  })
+  }
+
+  if(vectors){
+    req.vectors = vectors
+  }
+  
+
+  const uuid = await collection.data.insert(req)
 
   return uuid
+}
+
+export async function linkObject(client, sourceId, targetId, sourcePropertyName, sourceCollectioName){
+  const collection = client.collections.use(sourceCollectioName);
+  const req = {
+    fromUuid: generateUuid5(sourceId),
+    fromProperty: sourcePropertyName,
+    to: generateUuid5(targetId)
+  };
+
+  return await collection.data.referenceAdd(req);
+
 }
 
 

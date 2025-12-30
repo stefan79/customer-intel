@@ -30,9 +30,9 @@ Purpose:
 The goal is to understand the customer’s industry environment, structural market dynamics, and evolving customer demands as a foundation for later strategic and competitive analysis.
 
 Analysis scope:
-- Geography: <%= req.markets.join(", ")t%>
+- Geography: <%= req.markets.join(", ") %>
 - Time horizon: current state + emerging trends over the next 2–3 years
-- Industry context: <%= req.industries.join(", ")t%>
+- Industry context: <%= req.industries.join(", ") %>
 
 Method:
 1. Establish the company’s market context:
@@ -64,6 +64,12 @@ Guidelines:
 - Avoid references to competitors or competitive positioning.
 - Do not suggest initiatives, roadmaps, or solutions at this stage.
 
+Citation format requirements:
+- For every factual value, attach a human-readable source.
+- A source must include: title, publisher, URL, and publication date.
+- Do not output tool citation IDs or placeholders.
+- If a value is estimated, state the estimation method and cite the benchmark source.
+
 Output:
 Provide a structured, analytical narrative focused on market context, customer demand, and industry dynamics.`
 }
@@ -73,21 +79,14 @@ const model = Model.marketAnalysis;
 export default async function (request) {
   const req = requestValidator(request)
   const prompt = generatePrompt(promptTemplate, { req })
-  const response = await oc.responses.request({
-    model: "gpt-5-mini",
+  const response = await oc.responses.parse({
+    //model: "gpt-5-mini",
+    model: "gpt-4o-mini",
     tools: [
       { type: "web_search" },
     ],
     ...prompt,
+    ...model.openAIFormat,
   });
-  const analysis = response.output_text
-
-  const result =  {
-    domain: req.domain,
-    analysis
-  }
-
-  model.validate(result)
-
-  return result
+  return response.output_parsed
 }

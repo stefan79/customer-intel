@@ -21,6 +21,14 @@ declare module "sst" {
       "type": "sst.aws.Queue"
       "url": string
     }
+    "MarketAnalysisQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "MarketAnalysisQueueDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
     "MasterDataCallDownStreamHandler": {
       "name": string
       "type": "sst.aws.Function"

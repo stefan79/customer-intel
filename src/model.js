@@ -1,6 +1,7 @@
+import { mapZodToWeaviateProperties } from "./weaviate.js";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
-import { fetchObject, insertObject } from "./weaviate";
+import { fetchObject, insertObject, linkObject} from "./weaviate";
 
 export const legalName = z.string().min(1).max(255).describe("The complete legal name of the company")
 export const domain = z.string().min(1).max(255).describe("The main domain of the company homepage in the format of name.tld")
@@ -73,8 +74,20 @@ const marketAnalysis = z.object({
   analysis: z.string().describe("A complete anlaysis of the market for the customer")
 }).describe("Market Analysis")
 
+const companyNews = z.object({
+  domain,
+  source: z.string().min(1).max(2048).describe("Public URL of the source"),
+  summary: z.string().min(1).describe("Concise summary of the news item"),
+  date: z.string().min(1).describe("Publication date in ISO 8601 format (YYYY-MM-DD)"),
+}).describe("News item about a company")
 
-const generateModelRegistryEntry = (zodSchema, collectionName, idName) => {
+const COMPANY_MASTER_DATA_COLLECTION = "CompanyMasterData";
+const COMPANY_ASSESSMENT_COLLECTION = "CompanyAssessment";
+const COMPETING_COMPANIES_COLLECTION = "CompetingCompanies";
+const MARKET_ANALYSIS_COLLECTION = "MarketAnalysis";
+const COMPANY_NEWS_COLLECTION = "CompanyNews";
+
+const generateModelRegistryEntry = (zodSchema, collectionName, idName, references, vectors) => {
   return {
     openAIFormat: {
       text: {
@@ -82,42 +95,100 @@ const generateModelRegistryEntry = (zodSchema, collectionName, idName) => {
       },
     },
     fetchObject: async (client, id) => {
-      return fetchObject(client, id, collectionName)
+      return await fetchObject(client, id, collectionName)
     },
-    insertObject: async (client, properties) => {
-      return insertObject(client, properties[idName], properties, collectionName)
+    insertObject: async (client, properties, vectors) => {
+      return await insertObject(client, properties[idName], properties, collectionName, vectors)
+    },
+    linkObjects: async (client, sourcePropertyName, source, target) => {
+      
+      const targetCollectioName = references[sourcePropertyName]
+      if (targetCollectioName == null){
+        throw new Error("Source Property not mapped for collection", collectionName, sourcePropertyName);
+      }
+      const sourceId = source[idName]
+      const targetModelIdName = registryIndex[targetCollectioName].idName
+      const targetId = target[targetModelIdName]
+      
+      return await linkObject(client, sourceId, targetId,  sourcePropertyName, collectionName)
     },
     validate: (obj) => {
       return zodSchema.parse(obj)
     },
+    collectionDefinition: {
+      name: collectionName,
+      properties: mapZodToWeaviateProperties(zodSchema),
+      references: createCollectionReferences(references),
+      vectorConfig: vectors.reduce((acc, vector) => {
+        acc[vector] = { vectorIndexType: "hnsw" };
+        return acc;
+      }, {})
+    },
+    idName,
+    references,
     zodSchema,
     collectionName,
+    vectors,
   };
 };
 
-export default {
+const createCollectionReferences = (collectionMap) => {
+  return Object.entries(collectionMap).map(([key, entry]) => ({
+    name: key,
+    targetCollection: entry
+  }))
+}
+
+const registry = {
   companyMasterData: generateModelRegistryEntry(
     companyMasterDataSchema,
-    "CompanyMasterData",
+    COMPANY_MASTER_DATA_COLLECTION,
     "domain",
+    {
+      "assessment": COMPANY_ASSESSMENT_COLLECTION,
+      "marketAnalysis": MARKET_ANALYSIS_COLLECTION,
+    },
+    []
   ),
   competingCompanies: generateModelRegistryEntry(
     competingCompaniesSchema,
-    "CompetingCompanies",
+    COMPETING_COMPANIES_COLLECTION,
     "customerDomain",
+    {},
+    []
   ),
   companyAssessment: generateModelRegistryEntry(
     companyAssessment,
-    "CompanyAssessment",
+    COMPANY_ASSESSMENT_COLLECTION,
     "domain",
+    {},
+    []
   ),
   marketAnalysis: generateModelRegistryEntry(
     marketAnalysis,
-    "MarketAnalysis",
+    MARKET_ANALYSIS_COLLECTION,
     "domain",
+    {},
+    ["swot"]
+  ),
+  companyNews: generateModelRegistryEntry(
+    companyNews,
+    COMPANY_NEWS_COLLECTION,
+    "source",
+    {},
+    []
   ),
 };
 
+export default registry
+
+const registryIndexReducer = ((acc, [modelName, model]) => {
+  acc[model.collectionName] = model
+  acc[model.collectionName].modelName = modelName
+  return acc
+})
+
+const registryIndex = Object.entries(registry).reduce(registryIndexReducer, {})
 
 export const LookupCompanyMasterDataRequest = z.object({
   company: z.string().min(1),
