@@ -1,0 +1,22 @@
+{
+  "dependencies": {
+    "@aws-sdk/client-sqs": "3.723.0",
+    "ejs": "^3.1.10",
+    "openai": "^6.15.0",
+    "sst": "3.17.25",
+    "weaviate-client": "^3.10.0",
+    "zod": "^3.25.0"
+  },
+  "name": "customer-intel",
+  "version": "0.1.0",
+  "description": "Manages Customer Intelligence to prepare meetings",
+  "main": "index.js",
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.159"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
