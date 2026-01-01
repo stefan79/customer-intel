@@ -23,6 +23,7 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
   - Collection bootstrap: `src/handler/createcollection.js`
 - `src/cmd/**` contains command modules that call OpenAI and return structured results.
   - Markdown fallback: `src/cmd/generateMarkdownFallback.js`
+- `spec/**` contains design specs and implementation drafts.
 - `src/model.js` is the source of truth for schemas and collection registry.
 - `src/weaviate.js` contains Weaviate client helpers and Zod-to-properties mapping.
 - `src/util/request.js` contains the curried request validator.
