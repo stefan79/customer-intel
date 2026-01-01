@@ -18,8 +18,8 @@ pnpm install
 ## Secrets and environment
 Set secrets per stage before running `sst dev` or deploying:
 ```bash
-pnpm dlx sst secrets set --stage <stage> OpenAIApiKey <value>
-pnpm dlx sst secrets set --stage <stage> WeaviateAPIKey <value>
+pnpx sst secrets set --stage <stage> OpenAIApiKey <value>
+pnpx sst secrets set --stage <stage> WeaviateAPIKey <value>
 ```
 
 ## Local development
@@ -30,11 +30,11 @@ pnpm dlx sst secrets set --stage <stage> WeaviateAPIKey <value>
   ```
 - Start the SST dev environment (using `pnpx` via `pnpm dlx`):
   ```bash
-  pnpm dlx sst dev --stage <stage>
+  pnpx sst dev --stage <stage>
   ```
 - Deploy to a stage:
   ```bash
-  pnpm dlx sst deploy --stage <stage>
+  pnpx sst deploy --stage <stage>
   ```
 
 ## Manual Lambda invocations
