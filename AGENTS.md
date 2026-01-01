@@ -6,6 +6,7 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - Use Context7 (MCP) for library documentation lookups (SST, OpenAI, Weaviate). Prefer it over web search.
 - Keep edits ASCII-only unless the file already contains Unicode.
 - Keep style consistent with the file you are editing (indentation, semicolons, line wrapping).
+- Keep `README.md` current whenever you change setup steps, workflows, or supported entry points.
 
 ## Project Layout
 - `sst.config.ts` defines infrastructure (queues, secrets, functions).
@@ -34,6 +35,11 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - Zod schemas are lowercase `const` with `Schema` only when used outside the model registry.
 - Handlers export `export async function handler(...)`.
 - Command modules export a default function plus a named `requestValidator`.
+
+## JavaScript Style
+- Favor idiomatic, modern JavaScript (prefer `const`/`let`, arrow functions, object shorthand, and concise return paths).
+- Reuse helpers or handlers instead of duplicating Lambda logic; keep shared utilities centralized.
+- Prefer expressive variable naming over comments that restate the code.
 
 ## Handler Roles and Naming
 - `call.downstream.js`: a caller/entrypoint handler. It validates input, checks/loads data, and enqueues the next queue.
