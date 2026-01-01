@@ -44,9 +44,9 @@ pnpm dlx sst secrets set --stage <stage> WeaviateAPIKey <value>
    - **NewsQueue** payload carries `customerDomain`, `domain`, `legalCompanyName`, and `subjectType` for news discovery.
 3. **Competition subscriber** (`src/handler/competition/subscribe.downstream.js`): fetches or generates competing companies, ensures competitor master data exists, links the customer to competitors via `competingCompanies`, and enqueues competitor assessments (`subjectType=competitor`) on `AssessmentQueue` without triggering further competition searches.
 4. **News fanout subscriber** (`src/handler/news/subscribe.fanout.js`): generates company news items (annotated with `customerDomain` and `subjectType`), stores new entries, and sends downloadable sources to `DownloadQueue` with `{ customerDomain, domain, subjectType, url, fallback, vectorStore: "news/<domain>", type: "news" }`.
-5. **Vector store loader** (`src/handler/loadintovectorstore/subscribe.poll.js`): downloads each URL (or builds markdown fallbacks), uploads files to OpenAI, ensures the target vector store exists, and starts the `VectorStoreBatchFlow` Step Function with context that includes `customerDomain`, `subjectType`, and the generated `vectorStoreId`.
-6. **Vector store batch polling** (`VectorStoreBatchFlow` defined in `sst.config.ts`): polls ingestion status, then sends a `MarketAnalysisQueue` message containing `customerDomain`, `subjectType`, `industries`, `markets`, `legalName`, `domain`, and `vectorStoreId`.
-7. **Market analysis subscriber** (`src/handler/marketanalysis/subscribe.downstream.js`): fetches or generates market analysis using news signals from the provided `vectorStoreId` via the OpenAI `file_search` tool, stores it, and links it back to the master data record.
+5. **Vector store loader** (`src/handler/loadintovectorstore/subscribe.poll.js`): downloads each URL (or builds markdown fallbacks), uploads files to OpenAI, ensures the target vector store exists, then uses `vectorStores.fileBatches.createAndPoll` to wait for ingestion before enqueueing `MarketAnalysisQueue` with `customerDomain`, `subjectType`, `industries`, `markets`, `legalName`, `domain`, and `vectorStoreId`.
+6. **Market analysis subscriber** (`src/handler/marketanalysis/subscribe.downstream.js`): fetches or generates market analysis using news signals from the provided `vectorStoreId` via the OpenAI `file_search` tool, stores it, and links it back to the master data record.
+7. **Competition analysis subscriber** (`src/handler/competitionanalysis/subscribe.downstream.js`): combines market analysis context for customer and competitor, generates a comparative analysis, stores it, and links it to both master data records.
 8. **Collection bootstrap** (`src/handler/createcollection.js`, `WeaviateCollectionCreator`): recreates Weaviate collections from the schemas in `src/model.js` using `mapZodToWeaviateProperties`.
 
 ### Payload notes
@@ -59,6 +59,29 @@ pnpm dlx sst secrets set --stage <stage> WeaviateAPIKey <value>
 - OpenAI prompt rendering: `src/util/openai.js`
 - Request validation helper: `src/util/request.js`
 - Vector store batching spec: `spec/VECTORSTORE_BATCH_SPEC.md`
+
+## Data model evolution
+The collections below are stored in Weaviate and derived in order as the pipeline runs. This diagram shows how each structure is created and linked.
+
+```mermaid
+flowchart TD
+  Master[CompanyMasterData] --> Assessment[CompanyAssessment]
+  Master --> News[CompanyNews]
+  Assessment --> Competitors[CompetingCompanies]
+
+  News --> VectorStore[OpenAI Vector Store]
+  VectorStore --> MarketAnalysis[MarketAnalysis]
+  MarketAnalysis --> CompetitionAnalysis[CompetitionAnalysis]
+  Competitors --> CompetitionAnalysis
+  Master --> CompetitionAnalysis
+```
+
+### Notes on evolution
+- `CompanyMasterData` is the root record keyed by `domain`; it is required before downstream generations can run.
+- `CompanyAssessment` enriches the master record with estimates (revenue, markets, industries) and drives competition/news fanout.
+- `CompanyNews` collects source URLs and summaries; its content is uploaded to OpenAI vector stores.
+- `MarketAnalysis` is generated from the vector store and linked back to the master record.
+- `CompetitionAnalysis` ties customer and competitor master data together using market analysis context.
 
 
 ## Quality Expectation
