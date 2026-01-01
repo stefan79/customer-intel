@@ -113,6 +113,7 @@ Handler/Command Updates (by file)
 - `src/handler/marketanalysis/subscribe.downstream.js`
   - Accept `customerDomain` and `subjectType`.
   - Decide how to store/link analysis: customer vs competitor.
+  - If analysis already exists, skip generation but still enqueue downstream competition analysis attempt.
 - `src/handler/news/subscribe.fanout.js`
   - Pass through `customerDomain` and `subjectType`.
 - `src/handler/assessment/subscribe.downstream.js`

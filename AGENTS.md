@@ -93,6 +93,7 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - Handlers check Weaviate for existing entries before generating new ones.
 - News download -> vector store file batch (createAndPoll) -> enqueue MarketAnalysis with `vectorStoreId`.
 - Queue payloads that include a domain must also include `customerDomain` and `subjectType` (`customer` | `competitor`) and preserve them downstream.
+- If MarketAnalysis already exists, skip generation but still enqueue downstream competition analysis attempts.
 
 ## Gotchas
 - `z.coerce.date()` is fine for internal validation, but OpenAI structured outputs return JSON strings; use string dates in model-facing schemas if needed and coerce after parsing.
