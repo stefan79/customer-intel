@@ -31,13 +31,6 @@ export async function handler(event) {
             markets: assessment.markets.value
         }
 
-        const marketAnalysisReq = {
-            legalName: req.legalName,
-            domain: req.domain,
-            industries: assessment.industries.value,
-            markets: assessment.markets.value
-        }
-
         const newsReq = {
             legalCompanyName: req.legalName,
             domain: req.domain
@@ -47,13 +40,6 @@ export async function handler(event) {
             new SendMessageCommand({
                 QueueUrl: Resource.CompetitionQueue.url,
                 MessageBody: JSON.stringify(competitionReq),
-            })
-        );
-
-        await sqs.send(
-            new SendMessageCommand({
-                QueueUrl: Resource.MarketAnalysisQueue.url,
-                MessageBody: JSON.stringify(marketAnalysisReq),
             })
         );
 
