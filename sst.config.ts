@@ -16,6 +16,8 @@ export default $config({
     const WeaviateAPIKey = new sst.Secret("WeaviateAPIKey")
 
     const maxReceiveCount = 1
+    const VECTORSTORE_POLL_INTERVAL_SECONDS = 10
+    const VECTORSTORE_POLL_MAX_ATTEMPTS = 30
 
     const AssessmentQueueDLQ = new sst.aws.Queue("AssessmentQueueDLQ", {})
     const CompetitionQueueDLQ = new sst.aws.Queue("CompetitionQueueDLQ", {})
@@ -58,6 +60,50 @@ export default $config({
       },
     });
 
+    const VectorStoreCheckBatch = new sst.aws.Function("VectorStoreCheckBatch", {
+      handler: "src/handler/loadintovectorstore/check.batch.handler",
+      link: [OpenAIApiKey],
+    });
+
+    const notifyMarketAnalysis = sst.aws.StepFunctions.sqsSendMessage({
+      name: "NotifyMarketAnalysis",
+      queue: MarketAnalysisQueue,
+      messageBody:
+        "{% $string({\"legalName\": $states.input.context.legalName, \"domain\": $states.input.context.domain, \"industries\": $states.input.context.industries, \"markets\": $states.input.context.markets, \"vectorStoreId\": $states.input.vectorStoreId}) %}",
+    });
+
+    const checkBatchStatus = sst.aws.StepFunctions.lambdaInvoke({
+      name: "CheckBatchStatus",
+      function: VectorStoreCheckBatch,
+      payload: "{% $states.input %}",
+      output: "{% $states.result.Payload %}",
+    })
+      .retry({
+        errors: ["BatchPending"],
+        interval: `${VECTORSTORE_POLL_INTERVAL_SECONDS} seconds`,
+        maxAttempts: VECTORSTORE_POLL_MAX_ATTEMPTS,
+        backoffRate: 1,
+      });
+
+    const batchFailed = sst.aws.StepFunctions.fail({ name: "BatchFailed" });
+    const pollTimeout = sst.aws.StepFunctions.fail({ name: "PollTimeout" });
+    const done = sst.aws.StepFunctions.succeed({ name: "Done" });
+
+    notifyMarketAnalysis.next(done);
+
+    checkBatchStatus
+      .catch(batchFailed, { errors: ["BatchFailed"] })
+      .catch(pollTimeout, { errors: ["BatchPending"] })
+      .catch(batchFailed, { errors: ["States.ALL"] })
+      .next(notifyMarketAnalysis);
+
+    const VectorStoreBatchFlow = new sst.aws.StepFunctions(
+      "VectorStoreBatchFlow",
+      {
+        definition: checkBatchStatus,
+      }
+    );
+
 
     AssessmentQueue.subscribe({
       handler: "src/handler/assessment/subscribe.downstream.handler", 
@@ -93,7 +139,10 @@ export default $config({
 
     DownloadQueue.subscribe({
       handler: "src/handler/loadintovectorstore/subscribe.poll.handler",
-      link: [OpenAIApiKey],
+      link: [OpenAIApiKey, WeaviateAPIKey, VectorStoreBatchFlow],
+      environment: {
+        WeaviateEndpoint
+      }
     })
 
     new sst.aws.Function("MasterDataCallDownStreamHandler", {

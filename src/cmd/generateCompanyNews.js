@@ -40,7 +40,9 @@ Output rules:
 - Do not include duplicates or multiple entries for the same source URL.
 - Set "domain" to "<%= req.domain %>" for every item.
 - Return an array of items.
-- Return structured data only; no prose or explanations.`
+- Return structured data only; no prose or explanations.
+- Keep the JSON response small: limit each summary to <= 600 characters and hard cap at 12 items.
+- Do not include any extra keys beyond the schema.`
 }
 
 const model = Model.companyNews;

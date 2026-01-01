@@ -16,7 +16,8 @@ const requestSchema = z.object({
   legalName,
   domain,
   markets,
-  industries
+  industries,
+  vectorStoreId: z.string().min(1).optional(),
 }).describe("Request to generate an assesment for a company");
 
 export const requestValidator = ValidationCreator(requestSchema)

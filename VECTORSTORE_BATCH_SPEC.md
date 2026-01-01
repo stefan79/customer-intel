@@ -31,11 +31,12 @@ Target Behavior (Polling)
        - Buffered request fields (ex: `domain`, `type`, `legalCompanyName`, etc.).
 
 2) Step Functions state machine (polling pattern):
-   - `CheckBatchStatus` (Lambda): calls `vectorStores.fileBatches.retrieve`, increments `pollAttempts`, and returns status.
-   - `Choice`:
-     - If `status === "completed"` -> `NotifyMarketAnalysis`.
-     - If `status in ["failed", "cancelled"]` -> fail.
-     - Else -> `Wait` -> loop back to `CheckBatchStatus`.
+   - `CheckBatchStatus` (Lambda): calls `vectorStores.fileBatches.retrieve`.
+     - If `status === "completed"` -> return success.
+     - If `status in ["failed", "cancelled"]` -> throw `BatchFailed`.
+     - Else -> throw `BatchPending` to trigger a retry.
+   - Step Functions retries `BatchPending` with a fixed interval and max attempts.
+   - On success -> `NotifyMarketAnalysis`. On `BatchFailed` -> fail. On `BatchPending` after max attempts -> `PollTimeout`.
 
 SST Infrastructure Changes (sst.config.ts)
 - Reuse existing `MarketAnalysisQueue` and its DLQ (no new queue).
@@ -53,16 +54,14 @@ SST Infrastructure Changes (sst.config.ts)
   - `CheckBatchStatus` links to `OpenAIApiKey`.
 
 Step Functions Definition (SST v3)
-- `CheckBatchStatus` -> `Choice`:
-  - completed -> `NotifyMarketAnalysis` (SQS send message task) -> `Succeed`
-  - failed/cancelled -> `Fail`
-  - otherwise -> `Wait(POLL_INTERVAL_SECONDS)` -> `CheckBatchStatus`
-- The Wait state is managed by Step Functions; the Lambda only runs during each short `CheckBatchStatus` invocation.
-- Guardrails:
-  - Track `pollAttempts` in the state input and fail when `pollAttempts >= POLL_MAX_ATTEMPTS`.
-  - `CheckBatchStatus` must return `pollAttempts + 1` so the loop progresses.
-  - `POLL_INTERVAL_SECONDS` and `POLL_MAX_ATTEMPTS` are defined in `sst.config.ts` and baked into the state machine definition.
-  - Default values: `VECTORSTORE_POLL_INTERVAL_SECONDS = 10`, `VECTORSTORE_POLL_MAX_ATTEMPTS = 10`.
+- `CheckBatchStatus` (with `Retry` on `BatchPending`) -> `NotifyMarketAnalysis` (SQS send message task) -> `Succeed`
+- `Retry` uses:
+  - `VECTORSTORE_POLL_INTERVAL_SECONDS` as the retry interval.
+  - `VECTORSTORE_POLL_MAX_ATTEMPTS` as max attempts.
+- `Catch` routes:
+  - `BatchFailed` -> `Fail`
+  - `BatchPending` (after max attempts) -> `PollTimeout`
+- Default values: `VECTORSTORE_POLL_INTERVAL_SECONDS = 10`, `VECTORSTORE_POLL_MAX_ATTEMPTS = 10`.
 
 Payloads
 - State machine input (example):
@@ -70,7 +69,6 @@ Payloads
     "vectorStoreId": "vs_...",
     "vectorStoreName": "news/example.com",
     "batchId": "vsfb_...",
-    "pollAttempts": 0,
     "context": {
       "domain": "example.com",
       "type": "news",
@@ -96,7 +94,8 @@ Code Changes Summary
 
 - `src/handler/loadintovectorstore/check.batch.js`
   - Input: vectorStoreId, batchId, context.
-  - Output: status + input passthrough + incremented `pollAttempts`.
+  - Output: status + input passthrough on completion.
+  - Throws `BatchPending` to trigger a retry, `BatchFailed` to fail fast.
 
 - Step Functions `sqsSendMessage` task
   - Enqueue to `MarketAnalysisQueue` with buffered context.

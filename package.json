@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@aws-sdk/client-sqs": "3.723.0",
+    "@aws-sdk/client-sfn": "3.723.0",
     "ejs": "^3.1.10",
     "openai": "^6.15.0",
     "sst": "3.17.25",

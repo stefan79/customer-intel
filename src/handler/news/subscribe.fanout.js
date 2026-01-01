@@ -9,35 +9,6 @@ import Model from "../../model.js";
 const model = Model.companyNews;
 const sqs = new SQSClient({});
 
-async function hasSuccessfulResponse(url) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    const headResponse = await fetch(url, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: controller.signal,
-    });
-    if (headResponse.ok) {
-      return true;
-    }
-    const rangeResponse = await fetch(url, {
-      method: "GET",
-      redirect: "follow",
-      headers: {
-        Range: "bytes=0-0",
-      },
-      signal: controller.signal,
-    });
-    return rangeResponse.ok;
-  } catch (error) {
-    console.log("Header check failed", url);
-    return false;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 export async function handler(event) {
   for (const record of event.Records ?? []) {
     const req = requestValidator(record.body);
@@ -51,22 +22,19 @@ export async function handler(event) {
       } else {
         console.log("Will skip: ", item.source)
       }
-      const isAvailable = await hasSuccessfulResponse(item.source);
-      if (isAvailable) {
-        const downloadReq = {
-          domain: item.domain,
-          url: item.source,
-          fallback: item.summary,
-          vectorStore: `news/${item.domain}`,
-          type: "news",
-        };
-        await sqs.send(
-          new SendMessageCommand({
-            QueueUrl: Resource.DownloadQueue.url,
-            MessageBody: JSON.stringify(downloadReq),
-          })
-        );
-      }
+      const downloadReq = {
+        domain: item.domain,
+        url: item.source,
+        fallback: item.summary,
+        vectorStore: `news/${item.domain}`,
+        type: "news",
+      };
+      await sqs.send(
+        new SendMessageCommand({
+          QueueUrl: Resource.DownloadQueue.url,
+          MessageBody: JSON.stringify(downloadReq),
+        })
+      );
     }
   }
 

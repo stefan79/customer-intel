@@ -53,6 +53,14 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
+    "VectorStoreBatchFlow": {
+      "arn": string
+      "type": "sst.aws.StepFunctions"
+    }
+    "VectorStoreCheckBatch": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
     "WeaviateAPIKey": {
       "type": "sst.sst.Secret"
       "value": string

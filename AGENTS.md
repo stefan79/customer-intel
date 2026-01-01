@@ -6,6 +6,8 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - Use Context7 (MCP) for library documentation lookups (SST, OpenAI, Weaviate). Prefer it over web search.
 - Keep edits ASCII-only unless the file already contains Unicode.
 - Keep style consistent with the file you are editing (indentation, semicolons, line wrapping).
+- Use `pnpm` for installs and `pnpx` for one-off commands/scripts (avoid `npm install`).
+- For `sst dev`, read `.sst/outputs.json` to access the runtime outputs and infer URLs.
 
 ## Project Layout
 - `sst.config.ts` defines infrastructure (queues, secrets, functions).
@@ -14,8 +16,12 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
     - `src/handler/assessment/subscribe.downstream.js`
     - `src/handler/competition/subscribe.downstream.js`
     - `src/handler/masterdata/call.downstream.js`
+  - Vector store polling helpers:
+    - `src/handler/loadintovectorstore/subscribe.poll.js`
+    - `src/handler/loadintovectorstore/check.batch.js`
   - Collection bootstrap: `src/handler/createcollection.js`
 - `src/cmd/**` contains command modules that call OpenAI and return structured results.
+  - Markdown fallback: `src/cmd/generateMarkdownFallback.js`
 - `src/model.js` is the source of truth for schemas and collection registry.
 - `src/weaviate.js` contains Weaviate client helpers and Zod-to-properties mapping.
 - `src/util/request.js` contains the curried request validator.
@@ -77,7 +83,10 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 ## Integration Flow (Current)
 - Master data generation -> enqueue assessment -> enqueue competition.
 - Handlers check Weaviate for existing entries before generating new ones.
+- News download -> vector store file batch -> Step Functions polling -> enqueue MarketAnalysis.
 
 ## Gotchas
 - `z.coerce.date()` is fine for internal validation, but OpenAI structured outputs return JSON strings; use string dates in model-facing schemas if needed and coerce after parsing.
 - Ensure `mapZodToWeaviateProperties` is used for collections to avoid invalid schema payloads.
+- Vector store polling interval/attempts are deployment-time constants in `sst.config.ts`.
+- Market analysis requests accept optional `vectorStoreId` to drive vector store usage downstream.
