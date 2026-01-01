@@ -37,6 +37,26 @@ pnpm dlx sst secrets set --stage <stage> WeaviateAPIKey <value>
   pnpm dlx sst deploy --stage <stage>
   ```
 
+## Manual Lambda invocations
+Use AWS CLI discovery to avoid hardcoding Lambda names. Replace `<stage>` and `example.com` as needed.
+
+- Create (or recreate) Weaviate collections:
+  ```bash
+  COLLECTION_FN=$(aws lambda list-functions \
+    --query "Functions[?contains(FunctionName, 'WeaviateCollectionCreatorFunction')].FunctionName | [0]" \
+    --output text)
+  aws lambda invoke --function-name "$COLLECTION_FN" collection.json
+  ```
+- Trigger master data entrypoint:
+  ```bash
+  MASTERDATA_FN=$(aws lambda list-functions \
+    --query "Functions[?contains(FunctionName, 'MasterDataCallDownStreamHandlerFunction')].FunctionName | [0]" \
+    --output text)
+  aws lambda invoke --function-name "$MASTERDATA_FN" \
+    --payload '{"legalName":"Example Co","domain":"example.com"}' \
+    --cli-binary-format raw-in-base64-out output.json
+  ```
+
 ## Processing flow
 1. **Master data entrypoint** (`src/handler/masterdata/call.downstream.js`, `MasterDataCallDownStreamHandler`): validates the request (including `customerDomain` + `subjectType`, defaulting to a `customer`), generates company master data via OpenAI when missing, stores it in Weaviate, and enqueues the enriched request on `AssessmentQueue`.
 2. **Assessment subscriber** (`src/handler/assessment/subscribe.downstream.js`): fetches or generates an assessment, links it to master data, and fans out:
