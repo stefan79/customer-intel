@@ -382,3 +382,6 @@ Notes / Decisions
 - Phase 1.5 is excluded from this spec by design.
 - Phase 2 requires vendor catalog via vector store id only; no catalog contents in repo.
 - Keep each phase output stored in Weaviate and linked to `CompanyMasterData`.
+
+- Ensure the readme is updated
+- Ensure that the linter works without any issues.

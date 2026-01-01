@@ -106,4 +106,4 @@ flowchart TD
 
 ## Quality Expectation
 
-This is a PoC validating various techniques to create a complex document from a pipeline. Resilieince, Parallelism, Batching, etc. are not optimized in anyway.
+This is a PoC validating various techniques to create a complex document from a pipeline. Resilieince, Parallelism, Batching, etc. are not optimized in anyway. 
