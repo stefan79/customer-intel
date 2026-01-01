@@ -125,7 +125,7 @@ export default $config({
 
     new sst.aws.Function("WeaviateCollectionCreator", {
       handler: "src/handler/createcollection.handler", 
-      link: [WeaviateAPIKey],
+      link: [OpenAIApiKey, WeaviateAPIKey],
       environment: {
         WeaviateEndpoint
       }

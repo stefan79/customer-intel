@@ -55,17 +55,19 @@ Output rules:
 - Return JSON only matching the schema.
 - Escape newlines/tabs in strings.
 - Keep analysis under 3500 chars, summary under 1200 chars.
-- Set "id" to "<%= req.customerDomain %>|<%= req.competitorDomain %>" in the response.
+- Set "competitionId" to "<%= req.customerDomain %>|<%= req.competitorDomain %>" in the response.
 - Include competitorDomain in the output.`,
 };
 
 const model = Model.competitionAnalysis;
+const PARSE_RETRY_INSTRUCTIONS =
+  "Return a single valid JSON object only. Ensure all strings are properly escaped and do not include raw newlines.";
 
 export default async function generateCompetitionAnalysis(request) {
   const req = requestValidator(request);
   const prompt = generatePrompt(promptTemplate, { req });
 
-  const response = await oc.responses.parse({
+  const baseRequest = {
     model: "gpt-4o-mini",
     tools: [
       {
@@ -76,12 +78,31 @@ export default async function generateCompetitionAnalysis(request) {
     ],
     ...prompt,
     ...model.openAIFormat,
-  });
+  };
 
-  const parsed = response.output_parsed;
+  let parsed;
+  try {
+    const response = await oc.responses.parse(baseRequest);
+    parsed = response.output_parsed;
+  } catch (error) {
+    const message = error?.message ?? "";
+    const shouldRetry = message.includes("Unterminated string in JSON");
+    if (!shouldRetry) {
+      throw error;
+    }
+    const retryPrompt = {
+      ...prompt,
+      instructions: `${prompt.instructions}\n\n${PARSE_RETRY_INSTRUCTIONS}`,
+    };
+    const response = await oc.responses.parse({
+      ...baseRequest,
+      ...retryPrompt,
+    });
+    parsed = response.output_parsed;
+  }
   return {
     ...parsed,
-    id: `${req.customerDomain}|${req.competitorDomain}`,
+    competitionId: `${req.customerDomain}|${req.competitorDomain}`,
     customerDomain: req.customerDomain,
     competitorDomain: req.competitorDomain,
     customerLegalName: req.customerLegalName,

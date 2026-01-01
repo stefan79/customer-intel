@@ -1,4 +1,3 @@
-import { Filters } from "weaviate-client";
 import OpenAI from "openai";
 import { Resource } from "sst";
 import { z } from "zod";
@@ -26,6 +25,8 @@ const oc = new OpenAI({
 
 const QUESTION_PROMPT =
   "Compare competitive strengths and weaknesses, niche positioning, market trends, and customer expectations for customer vs competitor.";
+const MAX_ANALYSIS_CHARS = 8000;
+const MAX_PRIOR_CONTEXT_CHARS = 2000;
 
 export async function handler(event) {
   for (const record of event.Records ?? []) {
@@ -71,13 +72,19 @@ export async function handler(event) {
 
     const enrichedCustomerAnalysis = buildAnalysisContext(
       customerMarketAnalysis?.analysis,
-      customerContext
+      customerContext,
+      MAX_ANALYSIS_CHARS
     );
     const enrichedCompetitorAnalysis = buildAnalysisContext(
       competitorMarketAnalysis?.analysis,
-      competitorContext
+      competitorContext,
+      MAX_ANALYSIS_CHARS
     );
-    const priorContext = buildAnalysisContext("", priorCompetition);
+    const priorContext = buildAnalysisContext(
+      "",
+      priorCompetition,
+      MAX_PRIOR_CONTEXT_CHARS
+    );
 
     const competitionAnalysis = await GenerateCompetitionAnalysis({
       ...req,
@@ -85,7 +92,7 @@ export async function handler(event) {
       competitorMarketAnalysis: `${enrichedCompetitorAnalysis}\n\n${priorContext}`.trim(),
     });
 
-    competitionAnalysis.id = competitionId;
+    competitionAnalysis.competitionId = competitionId;
 
     try {
       await Model.competitionAnalysis.insertObject(wv, competitionAnalysis);
@@ -119,7 +126,7 @@ async function fetchMarketAnalysisContext(client, domain, queryVector) {
   const { objects } = await col.query.nearVector(queryVector, {
     targetVector: "competitionAnalysisLense",
     limit: 5,
-    filters: Filters.byProperty("domain").equal(domain),
+    filters: col.filter.byProperty("domain").equal(domain),
     returnProperties: ["analysis", "domain", "customerDomain", "subjectType"],
   });
   return objects ?? [];
@@ -140,14 +147,37 @@ async function fetchCompetitionContext(client, queryVector) {
   return objects ?? [];
 }
 
-function buildAnalysisContext(base, objects) {
+function buildAnalysisContext(base, objects, maxChars) {
   const baseText = typeof base === "string" ? base : "";
   const extras =
     objects
       ?.map((entry) => entry?.properties?.analysis)
       ?.filter((text) => typeof text === "string" && text.trim().length > 0) ?? [];
 
-  return [baseText, ...extras].filter(Boolean).join("\n\n");
+  const parts = [];
+  let currentSize = 0;
+
+  for (const text of [baseText, ...extras]) {
+    if (!text) {
+      continue;
+    }
+    const next = text.trim();
+    if (!next) {
+      continue;
+    }
+    const nextSize = next.length + (parts.length ? 2 : 0);
+    if (currentSize + nextSize > maxChars) {
+      const remaining = maxChars - currentSize - (parts.length ? 2 : 0);
+      if (remaining > 0) {
+        parts.push(next.slice(0, remaining));
+      }
+      break;
+    }
+    parts.push(next);
+    currentSize += nextSize;
+  }
+
+  return parts.join("\n\n");
 }
 
 async function linkCompetition(client, competitionAnalysis) {

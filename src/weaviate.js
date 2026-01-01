@@ -7,6 +7,9 @@ export async function getClient() {
     process.env.WeaviateEndpoint,
     {
       authCredentials: new ApiKey(Resource.WeaviateAPIKey.value),
+      headers: {
+        "X-OpenAI-Api-Key": Resource.OpenAIApiKey.value,
+      },
     }
   );
   return client;

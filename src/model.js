@@ -82,7 +82,7 @@ const marketAnalysis = z.object({
 }).describe("Market Analysis")
 
 const competitionAnalysis = z.object({
-  id: z.string().min(1).describe("Stable identifier for the customer + competitor pair"),
+  competitionId: z.string().min(1).describe("Stable identifier for the customer + competitor pair"),
   customerDomain: domain,
   competitorDomain: domain,
   customerLegalName: legalName,
@@ -215,18 +215,20 @@ const registry = {
     {},
     ["competitionAnalysisLense"],
     configure.vectorizer.text2VecOpenAI({
+      name: "marketAnalysisText",
       vectorIndexConfig: configure.vectorIndex.hnsw(),
     })
   ),
   competitionAnalysis: generateModelRegistryEntry(
     competitionAnalysis,
     COMPETITION_ANALYSIS_COLLECTION,
-    "id",
+    "competitionId",
     {
       competitionMasterData: COMPANY_MASTER_DATA_COLLECTION,
     },
     [],
     configure.vectorizer.text2VecOpenAI({
+      name: "competitionAnalysisText",
       vectorIndexConfig: configure.vectorIndex.hnsw(),
     })
   ),

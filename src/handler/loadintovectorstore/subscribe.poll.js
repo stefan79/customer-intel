@@ -51,8 +51,16 @@ export async function handler(event) {
       continue;
     }
     const vs = await getOrCreateVectorStore(vectorStoreName);
+    console.log("Starting vector store batch poll", {
+      vectorStore: vs.name,
+      fileCount: entry.fileIds.length,
+    });
     await oc.vectorStores.fileBatches.createAndPoll(vs.id, {
       file_ids: entry.fileIds,
+    });
+    console.log("Completed vector store batch poll", {
+      vectorStore: vs.name,
+      fileCount: entry.fileIds.length,
     });
 
     await sqs.send(

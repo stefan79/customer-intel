@@ -13,6 +13,14 @@ declare module "sst" {
       "type": "sst.aws.Queue"
       "url": string
     }
+    "CompetitionAnalysisQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "CompetitionAnalysisQueueDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
     "CompetitionQueue": {
       "type": "sst.aws.Queue"
       "url": string
