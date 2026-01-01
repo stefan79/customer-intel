@@ -17,9 +17,8 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
     - `src/handler/assessment/subscribe.downstream.js`
     - `src/handler/competition/subscribe.downstream.js`
     - `src/handler/masterdata/call.downstream.js`
-  - Vector store polling helpers:
+  - Vector store upload handler:
     - `src/handler/loadintovectorstore/subscribe.poll.js`
-    - `src/handler/loadintovectorstore/check.batch.js`
   - Collection bootstrap: `src/handler/createcollection.js`
 - `src/cmd/**` contains command modules that call OpenAI and return structured results.
   - Markdown fallback: `src/cmd/generateMarkdownFallback.js`
@@ -35,6 +34,7 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - Use `sst.Secret("Name")` for secrets; access inside handlers via `Resource.Name.value`.
 - Non-secret config goes through `environment` and read via `process.env.*`.
 - SQS queues use dedicated DLQs and `dlq.retry` from a shared `maxReceiveCount` constant.
+- Whenever application code accesses AWS resources via `Resource.*`, ensure the handler is linked to those resources in `sst.config.ts`.
 
 ## Naming and Structure
 - Collections are PascalCase (e.g., `CompanyMasterData`, `CompanyAssessment`, `CompetingCompanies`, `MarketAnalysis`).
@@ -91,11 +91,10 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - Master data generation -> enqueue assessment -> enqueue competition (customers only).
 - Competitor assessment/news/analysis reuse the same pipeline (subjectType=`competitor`) without re-running competition.
 - Handlers check Weaviate for existing entries before generating new ones.
-- News download -> vector store file batch -> Step Functions polling -> enqueue MarketAnalysis with `vectorStoreId`.
+- News download -> vector store file batch (createAndPoll) -> enqueue MarketAnalysis with `vectorStoreId`.
 - Queue payloads that include a domain must also include `customerDomain` and `subjectType` (`customer` | `competitor`) and preserve them downstream.
 
 ## Gotchas
 - `z.coerce.date()` is fine for internal validation, but OpenAI structured outputs return JSON strings; use string dates in model-facing schemas if needed and coerce after parsing.
 - Ensure `mapZodToWeaviateProperties` is used for collections to avoid invalid schema payloads.
-- Vector store polling interval/attempts are deployment-time constants in `sst.config.ts`.
 - Market analysis requests must carry `vectorStoreId` to drive news-signal retrieval downstream.

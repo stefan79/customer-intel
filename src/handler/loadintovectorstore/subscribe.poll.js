@@ -2,7 +2,7 @@ import { z } from "zod";
 import ValidationCreator from "../../util/request.js";
 import { Resource } from "sst";
 import OpenAI, { toFile } from "openai";
-import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { getClient } from "../../weaviate.js";
 import Model from "../../model.js";
 import GenerateMarkdownFallback from "../../cmd/generateMarkdownFallback.js";
@@ -10,7 +10,7 @@ import GenerateMarkdownFallback from "../../cmd/generateMarkdownFallback.js";
 const oc = new OpenAI({
   apiKey: Resource.OpenAIApiKey.value,
 });
-const sfn = new SFNClient({});
+const sqs = new SQSClient({});
 
 const requestSchema = z
   .object({
@@ -51,18 +51,21 @@ export async function handler(event) {
       continue;
     }
     const vs = await getOrCreateVectorStore(vectorStoreName);
-    const batch = await oc.vectorStores.fileBatches.create(vs.id, {
+    await oc.vectorStores.fileBatches.createAndPoll(vs.id, {
       file_ids: entry.fileIds,
     });
 
-    await sfn.send(
-      new StartExecutionCommand({
-        stateMachineArn: Resource.VectorStoreBatchFlow.arn,
-        input: JSON.stringify({
+    await sqs.send(
+      new SendMessageCommand({
+        QueueUrl: Resource.MarketAnalysisQueue.url,
+        MessageBody: JSON.stringify({
+          legalName: entry.context.legalName,
+          domain: entry.context.domain,
+          customerDomain: entry.context.customerDomain,
+          subjectType: entry.context.subjectType,
+          industries: entry.context.industries,
+          markets: entry.context.markets,
           vectorStoreId: vs.id,
-          vectorStoreName,
-          batchId: batch.id,
-          context: entry.context,
         }),
       })
     );

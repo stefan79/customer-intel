@@ -17,7 +17,15 @@ export async function handler(event) {
     if (!foundEntry) {
       console.log("Could not find market analysis, will generate.", req.domain, req.subjectType);
       analysis = await GenerateMarketAnalysis(req);
-      await model.insertObject(wv, analysis)
+      try {
+        await model.insertObject(wv, analysis);
+      } catch (error) {
+        if (!isDuplicateIdError(error)) {
+          throw error;
+        }
+        console.log("Market analysis already exists, skipping insert.", req.domain);
+        analysis = await model.fetchObject(wv, req.domain);
+      }
       const master = await Model.companyMasterData.fetchObject(wv, req.domain)
       if (master) {
         await Model.companyMasterData.linkObjects(wv, "marketAnalysis", master, analysis)
@@ -34,4 +42,9 @@ export async function handler(event) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ok: true, queued: true }),
   };
+}
+
+function isDuplicateIdError(error) {
+  const message = error?.message ?? "";
+  return message.includes("already exists") || message.includes("status code: 422");
 }

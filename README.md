@@ -59,3 +59,8 @@ pnpm dlx sst secrets set --stage <stage> WeaviateAPIKey <value>
 - OpenAI prompt rendering: `src/util/openai.js`
 - Request validation helper: `src/util/request.js`
 - Vector store batching spec: `spec/VECTORSTORE_BATCH_SPEC.md`
+
+
+## Quality Expectation
+
+This is a PoC validating various techniques to create a complex document from a pipeline. Resilieince, Parallelism, Batching, etc. are not optimized in anyway.

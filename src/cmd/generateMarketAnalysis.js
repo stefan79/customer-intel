@@ -76,7 +76,12 @@ Guidelines:
 - Where facts are unavailable, use explicit reasoning and clearly state assumptions.
 - Avoid speculative, promotional, or solution-oriented language.
 - Maintain a clear separation between Signals (news-derived), validated facts, and inferred implications.
-- Set "domain" to "<%= req.domain %>", "customerDomain" to "<%= req.customerDomain %>", "subjectType" to "<%= req.subjectType %>", and "vectorStoreId" to "<%= req.vectorStoreId %>" in the final structured response.`
+- Set "domain" to "<%= req.domain %>", "customerDomain" to "<%= req.customerDomain %>", "subjectType" to "<%= req.subjectType %>", and "vectorStoreId" to "<%= req.vectorStoreId %>" in the final structured response.
+
+Output rules:
+- Return valid JSON only that matches the schema.
+- Ensure all strings are JSON-safe (escape newlines and tabs as \\n and \\t).
+- Keep the analysis text under 3500 characters.`
 }
 
 const model = Model.marketAnalysis;
@@ -85,8 +90,7 @@ export default async function (request) {
   const req = requestValidator(request)
   const prompt = generatePrompt(promptTemplate, { req })
   const response = await oc.responses.parse({
-    //model: "gpt-5-mini",
-    model: "gpt-4o-mini",
+    model: "gpt-4.1-mini",
     tools: [
       {
         type: "file_search",
