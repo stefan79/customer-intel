@@ -1,8 +1,8 @@
 import { mapZodToWeaviateProperties } from "./weaviate.js";
-import { vectors, configure } from 'weaviate-client';
+import { vectors, configure } from "weaviate-client";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
-import { fetchObject, insertObject, linkObject} from "./weaviate";
+import { fetchObject, insertObject, linkObject } from "./weaviate";
 
 export const legalName = z.string().min(1).max(255).describe("The complete legal name of the company")
 export const domain = z.string().min(1).max(255).describe("The main domain of the company homepage in the format of name.tld")
@@ -81,6 +81,21 @@ const marketAnalysis = z.object({
   analysis: z.string().describe("A complete anlaysis of the market for the customer")
 }).describe("Market Analysis")
 
+const competitionAnalysis = z.object({
+  id: z.string().min(1).describe("Stable identifier for the customer + competitor pair"),
+  customerDomain: domain,
+  competitorDomain: domain,
+  customerLegalName: legalName,
+  competitorLegalName: legalName,
+  analysis: z.string().min(1).describe("Competition analysis narrative"),
+  summary: z.string().min(1).describe("Short bullet summary of the analysis"),
+  strengths: z.array(z.string().min(1)).describe("Strengths for competitor vs customer"),
+  weaknesses: z.array(z.string().min(1)).describe("Weaknesses for competitor vs customer"),
+  marketTrends: z.array(z.string().min(1)).describe("Market trends relevant to the comparison"),
+  customerExpectations: z.array(z.string().min(1)).describe("Customer expectation alignment notes"),
+  sources: z.array(z.string().min(1)).describe("Citations including title, publisher, url, and date"),
+}).describe("Competition Analysis comparing a competitor against the customer")
+
 const companyNews = z.object({
   domain,
   customerDomain: domain.describe("The originating customer domain for this news item"),
@@ -94,9 +109,29 @@ const COMPANY_MASTER_DATA_COLLECTION = "CompanyMasterData";
 const COMPANY_ASSESSMENT_COLLECTION = "CompanyAssessment";
 const COMPETING_COMPANIES_COLLECTION = "CompetingCompanies";
 const MARKET_ANALYSIS_COLLECTION = "MarketAnalysis";
+const COMPETITION_ANALYSIS_COLLECTION = "CompetitionAnalysis";
 const COMPANY_NEWS_COLLECTION = "CompanyNews";
 
-const generateModelRegistryEntry = (zodSchema, collectionName, idName, references, vectorNamesList) => {
+const buildVectorizers = (vectorNamesList, managedVectorizerConfig) => {
+  const configured = [];
+
+  if (managedVectorizerConfig) {
+    configured.push(managedVectorizerConfig);
+  }
+
+  for (const name of vectorNamesList ?? []) {
+    configured.push(
+      vectors.selfProvided({
+        name,
+        vectorIndexConfig: configure.vectorIndex.hnsw(),
+      })
+    );
+  }
+
+  return configured;
+};
+
+const generateModelRegistryEntry = (zodSchema, collectionName, idName, references, vectorNamesList, managedVectorizerConfig) => {
   return {
     openAIFormat: {
       text: {
@@ -128,12 +163,7 @@ const generateModelRegistryEntry = (zodSchema, collectionName, idName, reference
       name: collectionName,
       properties: mapZodToWeaviateProperties(zodSchema),
       references: createCollectionReferences(references),
-      vectorizers: vectorNamesList.map(name => {
-        return vectors.selfProvided({
-          name,
-          vectorIndexConfig: configure.vectorIndex.hnsw()
-        })
-      })
+      vectorizers: buildVectorizers(vectorNamesList, managedVectorizerConfig),
     },
     idName,
     references,
@@ -160,6 +190,7 @@ const registry = {
       "marketAnalysis": MARKET_ANALYSIS_COLLECTION,
       "news": COMPANY_NEWS_COLLECTION,
       "competingCompanies": COMPANY_MASTER_DATA_COLLECTION,
+      "competitionAnalysis": COMPETITION_ANALYSIS_COLLECTION,
     },
     []
   ),
@@ -182,7 +213,22 @@ const registry = {
     MARKET_ANALYSIS_COLLECTION,
     "domain",
     {},
-    []
+    ["competitionAnalysisLense"],
+    configure.vectorizer.text2VecOpenAI({
+      vectorIndexConfig: configure.vectorIndex.hnsw(),
+    })
+  ),
+  competitionAnalysis: generateModelRegistryEntry(
+    competitionAnalysis,
+    COMPETITION_ANALYSIS_COLLECTION,
+    "id",
+    {
+      competitionMasterData: COMPANY_MASTER_DATA_COLLECTION,
+    },
+    [],
+    configure.vectorizer.text2VecOpenAI({
+      vectorIndexConfig: configure.vectorIndex.hnsw(),
+    })
   ),
   companyNews: generateModelRegistryEntry(
     companyNews,
