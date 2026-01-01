@@ -88,12 +88,14 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - `requestValidator` parses JSON when request bodies are strings and logs invalid payloads before throwing.
 
 ## Integration Flow (Current)
-- Master data generation -> enqueue assessment -> enqueue competition.
+- Master data generation -> enqueue assessment -> enqueue competition (customers only).
+- Competitor assessment/news/analysis reuse the same pipeline (subjectType=`competitor`) without re-running competition.
 - Handlers check Weaviate for existing entries before generating new ones.
-- News download -> vector store file batch -> Step Functions polling -> enqueue MarketAnalysis.
+- News download -> vector store file batch -> Step Functions polling -> enqueue MarketAnalysis with `vectorStoreId`.
+- Queue payloads that include a domain must also include `customerDomain` and `subjectType` (`customer` | `competitor`) and preserve them downstream.
 
 ## Gotchas
 - `z.coerce.date()` is fine for internal validation, but OpenAI structured outputs return JSON strings; use string dates in model-facing schemas if needed and coerce after parsing.
 - Ensure `mapZodToWeaviateProperties` is used for collections to avoid invalid schema payloads.
 - Vector store polling interval/attempts are deployment-time constants in `sst.config.ts`.
-- Market analysis requests accept optional `vectorStoreId` to drive vector store usage downstream.
+- Market analysis requests must carry `vectorStoreId` to drive news-signal retrieval downstream.

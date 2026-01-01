@@ -15,11 +15,18 @@ const sfn = new SFNClient({});
 const requestSchema = z
   .object({
     domain: z.string().describe("The url of the file to download"),
+    customerDomain: z.string().optional(),
     url: z.string().describe("The url of the file to download"),
     fallback: z.string().describe("Body to use if the url fails to download"),
     vectorStore: z.string().describe("The vector store to add this file to"),
     type: z.string().describe("The typpe of document like news, etc."),
+    subjectType: z.string().optional(),
   })
+  .transform((value) => ({
+    ...value,
+    customerDomain: value.customerDomain ?? value.domain,
+    subjectType: value.subjectType ?? "customer",
+  }))
   .describe("Request to generate company news for a company");
 
 const validator = ValidationCreator(requestSchema);
@@ -35,7 +42,7 @@ export async function handler(event) {
     const entry = getOrCreateBatchEntry(fileIdsByStore, req.vectorStore);
     entry.fileIds.push(file.id);
     if (!entry.context) {
-      entry.context = await getMarketAnalysisContext(req.domain);
+      entry.context = await getMarketAnalysisContext(req);
     }
   }
 
@@ -118,33 +125,36 @@ async function uploadMarkdownFile(markdown, domain) {
   });
 }
 
-async function getMarketAnalysisContext(domain) {
-  if (contextCache.has(domain)) {
-    return await contextCache.get(domain);
+async function getMarketAnalysisContext(req) {
+  const cacheKey = `${req.customerDomain}|${req.domain}|${req.subjectType}`;
+  if (contextCache.has(cacheKey)) {
+    return await contextCache.get(cacheKey);
   }
 
   const pending = (async () => {
     const wv = await getClient();
-    const master = await Model.companyMasterData.fetchObject(wv, domain);
-    const assessment = await Model.companyAssessment.fetchObject(wv, domain);
+    const master = await Model.companyMasterData.fetchObject(wv, req.domain);
+    const assessment = await Model.companyAssessment.fetchObject(wv, req.domain);
 
     if (!master || !assessment) {
-      throw new Error(`Missing market analysis context for ${domain}`);
+      throw new Error(`Missing market analysis context for ${req.domain}`);
     }
 
     return {
       legalName: master.legalName,
-      domain,
+      domain: req.domain,
+      customerDomain: req.customerDomain,
+      subjectType: req.subjectType,
       industries: assessment.industries?.value ?? [],
       markets: assessment.markets?.value ?? [],
     };
   })();
 
-  contextCache.set(domain, pending);
+  contextCache.set(cacheKey, pending);
   try {
     return await pending;
   } catch (error) {
-    contextCache.delete(domain);
+    contextCache.delete(cacheKey);
     throw error;
   }
 }

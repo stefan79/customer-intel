@@ -15,13 +15,17 @@ export async function handler(event) {
     const foundEntry = analysis != null;
 
     if (!foundEntry) {
-      console.log("Could not find market analysis, will generate.", req.domain);
+      console.log("Could not find market analysis, will generate.", req.domain, req.subjectType);
       analysis = await GenerateMarketAnalysis(req);
       await model.insertObject(wv, analysis)
       const master = await Model.companyMasterData.fetchObject(wv, req.domain)
-      await Model.companyMasterData.linkObjects(wv, "marketAnalysis", master, analysis)
+      if (master) {
+        await Model.companyMasterData.linkObjects(wv, "marketAnalysis", master, analysis)
+      } else {
+        console.warn("Missing master data while linking market analysis", req.domain)
+      }
     } else {
-      console.log("Found market analysis, will skip", req.domain);
+      console.log("Found market analysis, will skip", req.domain, req.subjectType);
     }
   }
 

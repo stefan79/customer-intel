@@ -38,16 +38,21 @@ pnpm dlx sst secrets set --stage <stage> WeaviateAPIKey <value>
   ```
 
 ## Processing flow
-1. **Master data entrypoint** (`src/handler/masterdata/call.downstream.js`, `MasterDataCallDownStreamHandler`): validates the request, generates company master data via OpenAI when missing, stores it in Weaviate, and enqueues the original request on `AssessmentQueue`.
-2. **Assessment subscriber** (`src/handler/assessment/subscribe.downstream.js`): fetches or generates an assessment, links it to master data, and fans out three messages:
-   - **CompetitionQueue** payload extends the original request with `revenueInMio`, `industries`, and `markets` from the assessment.
-   - **MarketAnalysisQueue** payload keeps `legalName`, `domain`, `industries`, and `markets` for market analysis generation.
-   - **NewsQueue** payload keeps `legalCompanyName` and `domain` for news discovery.
-3. **Competition subscriber** (`src/handler/competition/subscribe.downstream.js`): fetches or generates competing companies data and stores it in Weaviate.
-4. **Market analysis subscriber** (`src/handler/marketanalysis/subscribe.downstream.js`): fetches or generates market analysis, stores it, and links it back to the master data record.
-5. **News fanout subscriber** (`src/handler/news/subscribe.fanout.js`): generates company news items, stores any new entries, and sends downloadable sources to `DownloadQueue` when the URL responds successfully. Download messages include `{ domain, url, fallback, vectorStore: "news/<domain>", type: "news" }`.
-6. **Vector store loader** (`src/handler/loadintovectorstore/subscribe.poll.js`): downloads each URL, uploads it to OpenAI files, ensures the target vector store exists, and attaches the file to the store. Download payloads also carry `fallback` text for richer handling described in `spec/VECTORSTORE_BATCH_SPEC.md`.
-7. **Collection bootstrap** (`src/handler/createcollection.js`, `WeaviateCollectionCreator`): recreates Weaviate collections from the schemas in `src/model.js` using `mapZodToWeaviateProperties`.
+1. **Master data entrypoint** (`src/handler/masterdata/call.downstream.js`, `MasterDataCallDownStreamHandler`): validates the request (including `customerDomain` + `subjectType`, defaulting to a `customer`), generates company master data via OpenAI when missing, stores it in Weaviate, and enqueues the enriched request on `AssessmentQueue`.
+2. **Assessment subscriber** (`src/handler/assessment/subscribe.downstream.js`): fetches or generates an assessment, links it to master data, and fans out:
+   - **CompetitionQueue** payload (customers only) extends the request with `revenueInMio`, `industries`, and `markets` from the assessment.
+   - **NewsQueue** payload carries `customerDomain`, `domain`, `legalCompanyName`, and `subjectType` for news discovery.
+3. **Competition subscriber** (`src/handler/competition/subscribe.downstream.js`): fetches or generates competing companies, ensures competitor master data exists, links the customer to competitors via `competingCompanies`, and enqueues competitor assessments (`subjectType=competitor`) on `AssessmentQueue` without triggering further competition searches.
+4. **News fanout subscriber** (`src/handler/news/subscribe.fanout.js`): generates company news items (annotated with `customerDomain` and `subjectType`), stores new entries, and sends downloadable sources to `DownloadQueue` with `{ customerDomain, domain, subjectType, url, fallback, vectorStore: "news/<domain>", type: "news" }`.
+5. **Vector store loader** (`src/handler/loadintovectorstore/subscribe.poll.js`): downloads each URL (or builds markdown fallbacks), uploads files to OpenAI, ensures the target vector store exists, and starts the `VectorStoreBatchFlow` Step Function with context that includes `customerDomain`, `subjectType`, and the generated `vectorStoreId`.
+6. **Vector store batch polling** (`VectorStoreBatchFlow` defined in `sst.config.ts`): polls ingestion status, then sends a `MarketAnalysisQueue` message containing `customerDomain`, `subjectType`, `industries`, `markets`, `legalName`, `domain`, and `vectorStoreId`.
+7. **Market analysis subscriber** (`src/handler/marketanalysis/subscribe.downstream.js`): fetches or generates market analysis using news signals from the provided `vectorStoreId` via the OpenAI `file_search` tool, stores it, and links it back to the master data record.
+8. **Collection bootstrap** (`src/handler/createcollection.js`, `WeaviateCollectionCreator`): recreates Weaviate collections from the schemas in `src/model.js` using `mapZodToWeaviateProperties`.
+
+### Payload notes
+- Every queued payload that includes a `domain` must also include the original `customerDomain` and `subjectType` (`customer` | `competitor`).
+- `vectorStoreId` is required for market analysis so the OpenAI `file_search` tool can surface recent news signals.
+- Competitors reuse the same queues as customers; only customers trigger the competition search.
 
 ## Additional references
 - Model schemas and registry: `src/model.js`

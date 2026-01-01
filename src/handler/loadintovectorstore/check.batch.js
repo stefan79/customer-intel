@@ -9,15 +9,17 @@ const oc = new OpenAI({
 
 const requestSchema = z
   .object({
-    vectorStoreId: z.string().min(1).optional(),
+    vectorStoreId: z.string().min(1),
     vectorStoreName: z.string().min(1),
     batchId: z.string().min(1),
     context: z
       .object({
         domain: z.string().min(1),
+        customerDomain: z.string().min(1),
         legalName: z.string().min(1),
         industries: z.array(z.string().min(1)),
         markets: z.array(z.string().min(1)),
+        subjectType: z.string().min(1),
       })
       .passthrough(),
   })

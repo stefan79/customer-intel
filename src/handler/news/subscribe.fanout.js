@@ -23,7 +23,9 @@ export async function handler(event) {
         console.log("Will skip: ", item.source)
       }
       const downloadReq = {
+        customerDomain: req.customerDomain,
         domain: item.domain,
+        subjectType: req.subjectType,
         url: item.source,
         fallback: item.summary,
         vectorStore: `news/${item.domain}`,

@@ -69,7 +69,7 @@ export default $config({
       name: "NotifyMarketAnalysis",
       queue: MarketAnalysisQueue,
       messageBody:
-        "{% $string({\"legalName\": $states.input.context.legalName, \"domain\": $states.input.context.domain, \"industries\": $states.input.context.industries, \"markets\": $states.input.context.markets, \"vectorStoreId\": $states.input.vectorStoreId}) %}",
+        "{% $string({\"legalName\": $states.input.context.legalName, \"domain\": $states.input.context.domain, \"customerDomain\": $states.input.context.customerDomain, \"subjectType\": $states.input.context.subjectType, \"industries\": $states.input.context.industries, \"markets\": $states.input.context.markets, \"vectorStoreId\": $states.input.vectorStoreId}) %}",
     });
 
     const checkBatchStatus = sst.aws.StepFunctions.lambdaInvoke({

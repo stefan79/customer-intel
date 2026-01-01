@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { legalName, domain } from "../model.js"
+import { legalName, domain, subjectType } from "../model.js"
 import ValidationCreator from "../util/request.js"
 import { generatePrompt } from "../util/openai.js";
 import Model from "../model.js"
@@ -12,9 +12,15 @@ const oc = new OpenAI({
 });
 
 const requestSchema = z.object({
+  customerDomain: domain.optional(),
   legalCompanyName: legalName,
-  domain
-}).describe("Request to generate company news for a company");
+  domain,
+  subjectType: subjectType.optional(),
+}).transform((value) => ({
+  ...value,
+  customerDomain: value.customerDomain ?? value.domain,
+  subjectType: value.subjectType ?? "customer",
+})).describe("Request to generate company news for a company");
 
 export const requestValidator = ValidationCreator(requestSchema)
 
@@ -39,6 +45,7 @@ Output rules:
 - Only include items with a clear publication date.
 - Do not include duplicates or multiple entries for the same source URL.
 - Set "domain" to "<%= req.domain %>" for every item.
+- Set "customerDomain" to "<%= req.customerDomain %>" and "subjectType" to "<%= req.subjectType %>" for every item.
 - Return an array of items.
 - Return structured data only; no prose or explanations.
 - Keep the JSON response small: limit each summary to <= 600 characters and hard cap at 12 items.
@@ -62,8 +69,14 @@ export default async function (request) {
     tools: [
       { type: "web_search" },
     ],
-    ...prompt,
-    ...listFormat,
-  });
-  return response.output_parsed.list
+      ...prompt,
+      ...listFormat,
+    });
+  const items = response.output_parsed.list ?? []
+  return items.map((item) => ({
+    ...item,
+    domain: req.domain,
+    customerDomain: req.customerDomain,
+    subjectType: req.subjectType,
+  }))
 }

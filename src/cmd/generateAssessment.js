@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import { legalName, domain } from "../model.js"
+import { legalName, domain, subjectType } from "../model.js"
 import ValidationCreator from "../util/request.js"
 import { generatePrompt } from "../util/openai.js";
 import Model from "../model.js"
@@ -13,9 +13,15 @@ const oc = new OpenAI({
 });
 
 const requestSchema = z.object({
+  customerDomain: domain.optional(),
   legalName,
-  domain
-}).describe("Request to generate an assesment for a company");
+  domain,
+  subjectType: subjectType.optional(),
+}).transform((value) => ({
+  ...value,
+  customerDomain: value.customerDomain ?? value.domain,
+  subjectType: value.subjectType ?? "customer",
+})).describe("Request to generate an assesment for a company");
 
 export const requestValidator = ValidationCreator(requestSchema)
 
@@ -51,11 +57,12 @@ Method:
 5. Cross-check key facts with at least one independent, reputable source whenever possible.
 6. If multiple plausible values or interpretations exist, list the alternatives and explain why one is most likely.
 
-Output:
-- Return the researched company information as structured factual content only.
-- Do not invent values arbitrarily.
-- Avoid using “unknown” as a source; if a value is estimated, provide the best defensible estimate along with its rationale and confidence.
-- Do not include schema descriptions or explanations of formatting.`
+        Output:
+        - Return the researched company information as structured factual content only.
+        - Do not invent values arbitrarily.
+        - Avoid using “unknown” as a source; if a value is estimated, provide the best defensible estimate along with its rationale and confidence.
+        - Do not include schema descriptions or explanations of formatting.
+        - Set "domain" to "<%= req.domain %>", "customerDomain" to "<%= req.customerDomain %>", and "subjectType" to "<%= req.subjectType %>" in the response.`
 }
 
 const model = Model.companyAssessment;
@@ -69,8 +76,13 @@ export default async function (request) {
       { type: "web_search" },
     ],
     ...prompt,
-    ...model.openAIFormat,
-  });
-  return response.output_parsed
+      ...model.openAIFormat,
+    });
+  const assessment = response.output_parsed
+  return {
+    ...assessment,
+    domain: req.domain,
+    customerDomain: req.customerDomain,
+    subjectType: req.subjectType,
+  }
 }
-

@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import {legalName, domain} from "../model.js"
+import {legalName, domain, subjectType} from "../model.js"
 import ValidationCreator from "../util/request.js"
 import { generatePrompt } from "../util/openai.js";
 import Model from "../model.js"
@@ -12,9 +12,15 @@ const oc = new OpenAI({
 });
 
 const requestSchema = z.object({
+  customerDomain: domain.optional(),
   legalName,
-  domain
-}).describe("Request to generate master data for a company");
+  domain,
+  subjectType: subjectType.optional(),
+}).transform((value) => ({
+  ...value,
+  customerDomain: value.customerDomain ?? value.domain,
+  subjectType: value.subjectType ?? "customer",
+})).describe("Request to generate master data for a company");
 
 export const requestValidator = ValidationCreator(requestSchema)
 
@@ -57,4 +63,3 @@ export default async function(request) {
     });
     return response.output_parsed
 }
-

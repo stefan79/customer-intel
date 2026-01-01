@@ -19,7 +19,11 @@ export async function handler(event) {
             assessment = await GenerateAssessment(record.body)
             await model.insertObject(wv, assessment)
             const masterData = await Model.companyMasterData.fetchObject(wv, req.domain)
-            await Model.companyMasterData.linkObjects(wv, "assessment", masterData, assessment)
+            if (masterData) {
+                await Model.companyMasterData.linkObjects(wv, "assessment", masterData, assessment)
+            } else {
+                console.warn("Missing master data while linking assessment", req.domain)
+            }
         } else {
             console.log("Found assessment, will skip", req.domain)
         }
@@ -32,16 +36,20 @@ export async function handler(event) {
         }
 
         const newsReq = {
+            customerDomain: req.customerDomain,
             legalCompanyName: req.legalName,
-            domain: req.domain
+            domain: req.domain,
+            subjectType: req.subjectType,
         }
 
-        await sqs.send(
-            new SendMessageCommand({
-                QueueUrl: Resource.CompetitionQueue.url,
-                MessageBody: JSON.stringify(competitionReq),
-            })
-        );
+        if (req.subjectType !== "competitor") {
+            await sqs.send(
+                new SendMessageCommand({
+                    QueueUrl: Resource.CompetitionQueue.url,
+                    MessageBody: JSON.stringify(competitionReq),
+                })
+            );
+        }
 
         await sqs.send(
             new SendMessageCommand({

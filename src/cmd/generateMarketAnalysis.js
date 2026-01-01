@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import { legalName, domain, industries, markets } from "../model.js"
+import { legalName, domain, industries, markets, subjectType } from "../model.js"
 import ValidationCreator from "../util/request.js"
 import { generatePrompt } from "../util/openai.js";
 import Model from "../model.js"
@@ -13,66 +13,70 @@ const oc = new OpenAI({
 });
 
 const requestSchema = z.object({
+  customerDomain: domain.optional(),
   legalName,
   domain,
   markets,
   industries,
-  vectorStoreId: z.string().min(1).optional(),
-}).describe("Request to generate an assesment for a company");
+  subjectType: subjectType.optional(),
+  vectorStoreId: z.string().min(1),
+}).transform((value) => ({
+  ...value,
+  customerDomain: value.customerDomain ?? value.domain,
+  subjectType: value.subjectType ?? "customer",
+})).describe("Request to generate an assesment for a company");
 
 export const requestValidator = ValidationCreator(requestSchema)
 
 const promptTemplate = {
-  instructions: `You are a research assistant to help prepare customer meetings.`,
-  input: `Task:
-Produce a thorough market and demand analysis for the company "<%= req.legalName%>" (domain: <%= req.domain%>), focusing on the markets the company operates in and what customers in those markets are demanding.
+  instructions: `You are a research assistant to help prepare customer meetings. Always pull recent signals from the provided vector store before writing your analysis.`,
+  input: `Subject:
+- Company: "<%= req.legalName%>" (domain: <%= req.domain%>)
+- Customer domain: <%= req.customerDomain %>
+- Subject type: <%= req.subjectType %> (<%= req.subjectType === "competitor" ? "analyze as a competitor relative to the customer" : "analyze as the customer" %>)
+- Industries: <%= req.industries.join(", ") %>
+- Markets: <%= req.markets.join(", ") %>
+- Vector store id (news): <%= req.vectorStoreId %>
 
-Purpose:
-The goal is to understand the customer’s industry environment, structural market dynamics, and evolving customer demands as a foundation for later strategic and competitive analysis.
+Critical instructions:
+- First, call the file_search tool with the provided vector store id to retrieve recent news snippets. Use up to 10 items, prioritizing recency (prefer the last 90 days) and direct relevance to the subject.
+- Treat retrieved news snippets as “Signals”. Keep them separate from verified facts and clearly mark whether each item is factual or an inferred signal.
+- You may also use web_search to verify claims and add citations for factual data.
 
-Analysis scope:
-- Geography: <%= req.markets.join(", ") %>
-- Time horizon: current state + emerging trends over the next 2–3 years
-- Industry context: <%= req.industries.join(", ") %>
+Analysis task:
+Produce a thorough market and demand analysis for the subject, focusing on the markets the company operates in and what customers in those markets are demanding over the next 2–3 years.
 
 Method:
-1. Establish the company’s market context:
+1) Signals (news-derived):
+   - Summarize up to 10 relevant snippets from file_search.
+   - Note publication date and source for each.
+   - Clarify whether each snippet is a direct fact or an inferred signal.
+
+2) Market context:
    - Core business model and value chain position
    - Primary products, services, and end markets
    - Customer types (e.g. industrial customers, OEMs, distributors, consumers)
    - Approximate scale and maturity (use factual data where available, otherwise reasoned estimates)
 
-2. Identify customer demand patterns:
-   - What customers in the company’s markets are increasingly demanding
-     (e.g. price pressure, reliability, customization, speed, sustainability, compliance, digital interfaces, data transparency)
+3) Customer demand patterns:
+   - What customers in the company’s markets are increasingly demanding (price, reliability, customization, speed, sustainability, compliance, digital interfaces, data transparency, etc.)
    - Base this on observable signals such as public statements, product offerings, service descriptions, industry publications, and market reports
 
-3. Analyze market and industry trends:
+4) Market and industry trends:
    - Structural trends affecting the industry (economic, regulatory, supply chain, sustainability, labor, cost structures)
-   - Technology and digital trends that are materially impacting the industry
-   - Distinguish clearly between:
-     • well-established trends
-     • emerging or early-stage signals
+   - Technology and digital trends materially impacting the industry
+   - Distinguish clearly between well-established trends and emerging or early-stage signals
 
-4. Implications for the company’s customers:
+5) Implications:
    - Explain how identified trends and demand shifts change expectations placed on companies like "<%= req.legalName %>"
    - Focus on operational, commercial, and organizational implications rather than solutions
 
 Guidelines:
-- Prioritize hard facts and verifiable information.
+- Prioritize hard facts and verifiable information with citations (title, publisher, URL, publication date). Do not output tool citation IDs.
 - Where facts are unavailable, use explicit reasoning and clearly state assumptions.
 - Avoid speculative, promotional, or solution-oriented language.
-- Avoid references to competitors or competitive positioning.
-- Do not suggest initiatives, roadmaps, or solutions at this stage.
-
-Citation format requirements:
-- For every factual value, attach a human-readable source.
-- A source must include: title, publisher, URL, and publication date.
-- Do not output tool citation IDs or placeholders.
-- If a value is estimated, state the estimation method and cite the benchmark source.
-
-Output:
-Provide a structured, analytical narrative focused on market context, customer demand, and industry dynamics.`
+- Maintain a clear separation between Signals (news-derived), validated facts, and inferred implications.
+- Set "domain" to "<%= req.domain %>", "customerDomain" to "<%= req.customerDomain %>", "subjectType" to "<%= req.subjectType %>", and "vectorStoreId" to "<%= req.vectorStoreId %>" in the final structured response.`
 }
 
 const model = Model.marketAnalysis;
@@ -84,10 +88,21 @@ export default async function (request) {
     //model: "gpt-5-mini",
     model: "gpt-4o-mini",
     tools: [
+      {
+        type: "file_search",
+        vector_store_ids: [req.vectorStoreId],
+      },
       { type: "web_search" },
     ],
     ...prompt,
     ...model.openAIFormat,
   });
-  return response.output_parsed
+  const analysis = response.output_parsed
+  return {
+    ...analysis,
+    domain: req.domain,
+    customerDomain: req.customerDomain,
+    subjectType: req.subjectType,
+    vectorStoreId: req.vectorStoreId,
+  }
 }

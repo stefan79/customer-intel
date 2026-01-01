@@ -6,6 +6,7 @@ import { fetchObject, insertObject, linkObject} from "./weaviate";
 
 export const legalName = z.string().min(1).max(255).describe("The complete legal name of the company")
 export const domain = z.string().min(1).max(255).describe("The main domain of the company homepage in the format of name.tld")
+export const subjectType = z.enum(["customer", "competitor"]).describe("Whether the subject is the original customer or a competitor")
 export const markets = z.array(
   z.string().min(2).max(2).describe("ISO 3166-1 alpha-2 country code, or glaobal in case of a glabal acting entity"),
 ).describe("Primary markets generating >= 80% of revenue");
@@ -57,6 +58,8 @@ const competingCompaniesSchema = z.object({
 
 const companyAssessment = z.object({
   domain,
+  customerDomain: domain.describe("The originating customer domain for this assessment"),
+  subjectType,
   revenueInMio: createEstimate(revenueInMio).describe("Annual Revenue"),
   revenueGrowth: createEstimate(z.number().describe("Annual Growth in Revenue since last year in Percent")).describe("Annual Growth"),
   numberOfEmployees: createEstimate(z.number().describe("Staff Headcount")).describe("Staff"),
@@ -72,11 +75,16 @@ const companyAssessment = z.object({
 
 const marketAnalysis = z.object({
   domain,
+  customerDomain: domain.describe("The originating customer domain for this market analysis"),
+  subjectType,
+  vectorStoreId: z.string().min(1).describe("The vector store containing related news signals"),
   analysis: z.string().describe("A complete anlaysis of the market for the customer")
 }).describe("Market Analysis")
 
 const companyNews = z.object({
   domain,
+  customerDomain: domain.describe("The originating customer domain for this news item"),
+  subjectType,
   source: z.string().min(1).max(2048).describe("Public URL of the source"),
   summary: z.string().min(1).describe("Concise summary of the news item"),
   date: z.string().min(1).describe("Publication date in ISO 8601 format (YYYY-MM-DD)"),
@@ -151,6 +159,7 @@ const registry = {
       "assessment": COMPANY_ASSESSMENT_COLLECTION,
       "marketAnalysis": MARKET_ANALYSIS_COLLECTION,
       "news": COMPANY_NEWS_COLLECTION,
+      "competingCompanies": COMPANY_MASTER_DATA_COLLECTION,
     },
     []
   ),

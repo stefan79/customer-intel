@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import { legalName, domain } from "../model.js"
+import { legalName, domain, subjectType } from "../model.js"
 import ValidationCreator from "../util/request.js"
 import { generatePrompt } from "../util/openai.js";
 import Model, {revenueInMio, industries, markets} from "../model.js"
@@ -13,12 +13,18 @@ const oc = new OpenAI({
 });
 
 const requestSchema = z.object({
+  customerDomain: domain.optional(),
   legalName,
   domain,
   markets,
   industries,
-  revenueInMio
-}).describe("Request to generate an competetiion list for a company");
+  revenueInMio,
+  subjectType: subjectType.optional(),
+}).transform((value) => ({
+  ...value,
+  customerDomain: value.customerDomain ?? value.domain,
+  subjectType: value.subjectType ?? "customer",
+})).describe("Request to generate an competetiion list for a company");
 
 export const requestValidator = ValidationCreator(requestSchema)
 
@@ -42,6 +48,7 @@ const promptTemplate = {
         E) Provide evidence for each competitor: 2–3 citations that show overlap in products/markets and (approx) revenue scale.
 
         Important rules:
+        - Set "customerDomain" to "<%= req.customerDomain %>" and "customerLegalName" to "<%= req.legalName %>" in the response.
         - Always include the competitor’s strongest evidence of direct overlap (specific product lines or business segments).
         - Avoid “same broad industry” matches; the overlap must be specific (specific product lines or business segments).
         - If revenue is missing, provide an estimate band with at least two independent sources and lower confidence.
@@ -59,9 +66,13 @@ export default async function (request) {
     tools: [
       { type: "web_search" },
     ],
-    ...prompt,
-    ...model.openAIFormat,
-  });
-  return response.output_parsed
+      ...prompt,
+      ...model.openAIFormat,
+    });
+  const competition = response.output_parsed
+  return {
+    ...competition,
+    customerDomain: req.customerDomain,
+    customerLegalName: req.legalName,
+  }
 }
-
