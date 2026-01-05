@@ -74,6 +74,7 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - Use `model.openAIFormat` to enforce schema formats when possible.
 - If the SDK method does not auto-parse, parse `response.output_text` with the Zod format’s `$parseRaw`.
 - Keep model names and prompt text inside `src/cmd/*` modules.
+- OpenAI structured outputs require all fields to be required; avoid `.optional()` unless the field is also `.nullable()`.
 
 ## Weaviate Conventions
 - Use `getClient()` from `src/weaviate.js`.
@@ -82,6 +83,7 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
   - `name: collectionName`
   - `properties: mapZodToWeaviateProperties(zodSchema)`
 - Zod string fields map to Weaviate `text` (no `string`) to avoid nested-property restrictions.
+- Weaviate reserves the `id` property name; `mapZodToWeaviateProperties` and `insertObject`/`fetchObject` transparently map it to `externalId`.
 
 ## Validation
 - Use `requestValidator` (from `src/util/request.js`) for handler inputs.
@@ -92,6 +94,7 @@ This project uses SST v3 (ESM JavaScript) with OpenAI + Weaviate. Follow the con
 - Competitor assessment/news/analysis reuse the same pipeline (subjectType=`competitor`) without re-running competition.
 - Handlers check Weaviate for existing entries before generating new ones.
 - News download -> vector store file batch (createAndPoll) -> enqueue MarketAnalysis with `vectorStoreId`.
+- Competition analysis -> enqueue IT strategy generation.
 - Queue payloads that include a domain must also include `customerDomain` and `subjectType` (`customer` | `competitor`) and preserve them downstream.
 - If MarketAnalysis already exists, skip generation but still enqueue downstream competition analysis attempts.
 

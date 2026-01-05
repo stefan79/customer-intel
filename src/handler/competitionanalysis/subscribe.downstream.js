@@ -1,3 +1,4 @@
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import OpenAI from "openai";
 import { Resource } from "sst";
 import { z } from "zod";
@@ -22,11 +23,12 @@ const requestValidator = ValidationCreator(requestSchema);
 const oc = new OpenAI({
   apiKey: Resource.OpenAIApiKey.value,
 });
+const sqs = new SQSClient({});
 
 const QUESTION_PROMPT =
   "Compare competitive strengths and weaknesses, niche positioning, market trends, and customer expectations for customer vs competitor.";
-const MAX_ANALYSIS_CHARS = 8000;
-const MAX_PRIOR_CONTEXT_CHARS = 2000;
+const MAX_ANALYSIS_CHARS = 5000;
+const MAX_PRIOR_CONTEXT_CHARS = 1500;
 
 export async function handler(event) {
   for (const record of event.Records ?? []) {
@@ -37,6 +39,7 @@ export async function handler(event) {
     const existing = await Model.competitionAnalysis.fetchObject(wv, competitionId);
     if (existing) {
       console.log("Competition analysis already exists, skipping", competitionId);
+      await enqueueITStrategy(req);
       continue;
     }
 
@@ -104,6 +107,7 @@ export async function handler(event) {
     }
 
     await linkCompetition(wv, competitionAnalysis);
+    await enqueueITStrategy(req);
   }
 
   return {
@@ -178,6 +182,20 @@ function buildAnalysisContext(base, objects, maxChars) {
   }
 
   return parts.join("\n\n");
+}
+
+async function enqueueITStrategy(req) {
+  const payload = {
+    customerDomain: req.customerDomain,
+    subjectType: "customer",
+  };
+
+  await sqs.send(
+    new SendMessageCommand({
+      QueueUrl: Resource.ITStrategyQueue.url,
+      MessageBody: JSON.stringify(payload),
+    })
+  );
 }
 
 async function linkCompetition(client, competitionAnalysis) {

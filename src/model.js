@@ -105,12 +105,76 @@ const companyNews = z.object({
   date: z.string().min(1).describe("Publication date in ISO 8601 format (YYYY-MM-DD)"),
 }).describe("News item about a company")
 
+const strategy = z.object({
+  id: z.string().min(1).describe("Stable strategy identifier"),
+  name: z.string().min(1).describe("Strategy title"),
+  intent: z.string().min(1).describe("Why the strategy matters now"),
+  competitiveRationale: z.string().min(1).describe("Why this helps vs competitors"),
+  businessCapabilityImpact: z.string().min(1).describe("Business capability uplift"),
+  itCapabilityImplications: z.string().min(1).describe("IT capability changes implied"),
+  riskIfNotPursued: z.string().min(1).describe("Risk if the strategy is ignored"),
+  timeHorizon: z.enum(["short", "mid", "long"]).describe("Time horizon for the strategy"),
+  evidenceIds: z.array(z.string().min(1)).min(1).describe("Evidence ids backing the strategy"),
+}).describe("Individual IT strategy")
+
+const itStrategy = z.object({
+  id: z.string().min(1).describe("Stable identifier for the IT strategy document (use customer domain)"),
+  customerDomain: domain,
+  subjectType,
+  customerLegalName: legalName,
+  strategies: z.array(strategy).min(1).describe("List of business-driven IT strategies"),
+  strengthAmplification: z.array(z.string().min(1)).describe("Strategies that amplify strengths"),
+  weaknessCompensation: z.array(z.string().min(1)).describe("Strategies that compensate weaknesses"),
+  newNicheDifferentiation: z.array(z.string().min(1)).describe("Strategies to open new niches"),
+  sources: z.array(z.string().min(1)).describe("Citations backing the strategy document"),
+}).describe("IT strategy document without selling content")
+
+const serviceMatch = z.object({
+  strategyName: z.string().min(1).describe("Strategy the services align to"),
+  supportingServices: z.array(z.string().min(1)).describe("Services that support the strategy"),
+  valueContribution: z.string().min(1).describe("Why the service fits the strategy"),
+  entryLevelEngagementIdeas: z.array(z.string().min(1)).describe("Low-risk engagement ideas"),
+  gaps: z.array(z.string().min(1)).describe("Gaps where no service matches"),
+}).describe("Service match for a strategy")
+
+const serviceMatching = z.object({
+  id: z.string().min(1).describe("Stable identifier for the service matching document (use customer domain)"),
+  customerDomain: domain,
+  subjectType,
+  customerLegalName: legalName,
+  itStrategyId: z.string().min(1).describe("Identifier of the linked IT strategy"),
+  matches: z.array(serviceMatch).min(1).describe("Service mappings for each strategy"),
+}).describe("Mapping of IT strategies to vendor services")
+
+const pocIdea = z.object({
+  objective: z.string().min(1).describe("Objective of the proof of concept"),
+  scope: z.string().min(1).describe("Scope of the proof of concept"),
+  successCriteria: z.array(z.string().min(1)).describe("Success criteria for the proof of concept"),
+}).describe("POC idea")
+
+const salesMeetingPrep = z.object({
+  id: z.string().min(1).describe("Stable identifier for the sales meeting prep document (use customer domain)"),
+  customerDomain: domain,
+  subjectType,
+  customerLegalName: legalName,
+  itStrategyId: z.string().min(1).describe("Identifier of the linked IT strategy"),
+  serviceMatchingId: z.string().min(1).describe("Identifier of the linked service matching output"),
+  executiveBriefing: z.string().min(1).describe("Executive-ready briefing summary"),
+  strategicHypotheses: z.array(z.string().min(1)).describe("Hypotheses to validate during the meeting"),
+  questionsToAsk: z.array(z.string().min(1)).describe("Questions tied to strategies"),
+  strategicImpulses: z.array(z.string().min(1)).describe("Non-salesy impulses to explore"),
+  pocIdeas: z.array(pocIdea).describe("Concrete POC ideas"),
+}).describe("Sales meeting preparation output")
+
 const COMPANY_MASTER_DATA_COLLECTION = "CompanyMasterData";
 const COMPANY_ASSESSMENT_COLLECTION = "CompanyAssessment";
 const COMPETING_COMPANIES_COLLECTION = "CompetingCompanies";
 const MARKET_ANALYSIS_COLLECTION = "MarketAnalysis";
 const COMPETITION_ANALYSIS_COLLECTION = "CompetitionAnalysis";
 const COMPANY_NEWS_COLLECTION = "CompanyNews";
+const IT_STRATEGY_COLLECTION = "ITStrategy";
+const SERVICE_MATCHING_COLLECTION = "ServiceMatching";
+const SALES_MEETING_PREP_COLLECTION = "SalesMeetingPrep";
 
 const buildVectorizers = (vectorNamesList, managedVectorizerConfig) => {
   const configured = [];
@@ -191,6 +255,9 @@ const registry = {
       "news": COMPANY_NEWS_COLLECTION,
       "competingCompanies": COMPANY_MASTER_DATA_COLLECTION,
       "competitionAnalysis": COMPETITION_ANALYSIS_COLLECTION,
+      "itStrategy": IT_STRATEGY_COLLECTION,
+      "serviceMatching": SERVICE_MATCHING_COLLECTION,
+      "salesMeetingPrep": SALES_MEETING_PREP_COLLECTION,
     },
     []
   ),
@@ -238,6 +305,27 @@ const registry = {
     "source",
     {},
     ["newsAnalysisLense"]
+  ),
+  itStrategy: generateModelRegistryEntry(
+    itStrategy,
+    IT_STRATEGY_COLLECTION,
+    "id",
+    {},
+    []
+  ),
+  serviceMatching: generateModelRegistryEntry(
+    serviceMatching,
+    SERVICE_MATCHING_COLLECTION,
+    "id",
+    {},
+    []
+  ),
+  salesMeetingPrep: generateModelRegistryEntry(
+    salesMeetingPrep,
+    SALES_MEETING_PREP_COLLECTION,
+    "id",
+    {},
+    []
   ),
 };
 

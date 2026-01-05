@@ -35,4 +35,7 @@ export async function handler(event) {
   await ensureCollection(client, Model.companyMasterData, overwrite);
   await ensureCollection(client, Model.competingCompanies, overwrite);
   await ensureCollection(client, Model.competitionAnalysis, overwrite);
+  await ensureCollection(client, Model.itStrategy, overwrite);
+  await ensureCollection(client, Model.serviceMatching, overwrite);
+  await ensureCollection(client, Model.salesMeetingPrep, overwrite);
 }

@@ -15,18 +15,58 @@ export async function getClient() {
   return client;
 }
 
+const RESERVED_PROPERTY_MAP = new Map([
+  ["id", "externalId"],
+]);
+
+const RESERVED_PROPERTY_REVERSE_MAP = new Map(
+  Array.from(RESERVED_PROPERTY_MAP, ([key, value]) => [value, key])
+);
+
+const mapReservedPropertyName = (name) =>
+  RESERVED_PROPERTY_MAP.get(name) ?? name;
+
+const restoreReservedPropertyName = (name) =>
+  RESERVED_PROPERTY_REVERSE_MAP.get(name) ?? name;
+
+function mapReservedProperties(value) {
+  if (Array.isArray(value)) {
+    return value.map(mapReservedProperties);
+  }
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    return Object.entries(value).reduce((acc, [key, val]) => {
+      acc[mapReservedPropertyName(key)] = mapReservedProperties(val);
+      return acc;
+    }, {});
+  }
+  return value;
+}
+
+function restoreReservedProperties(value) {
+  if (Array.isArray(value)) {
+    return value.map(restoreReservedProperties);
+  }
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    return Object.entries(value).reduce((acc, [key, val]) => {
+      acc[restoreReservedPropertyName(key)] = restoreReservedProperties(val);
+      return acc;
+    }, {});
+  }
+  return value;
+}
+
 export async function fetchObject(client, id, collectionName){
   const uuid = generateUuid5(id)
   const collection = client.collections.use(collectionName)
   const response = await collection.query.fetchObjectById(uuid)
-  return response?.properties
+  return restoreReservedProperties(response?.properties)
 }
 
 export async function insertObject(client, objectId, properties, collectionName, vectors){
   const collection = client.collections.use(collectionName)
   const id = generateUuid5(objectId)
   const req = {
-    properties,
+    properties: mapReservedProperties(properties),
     id
   }
 
@@ -104,15 +144,15 @@ function mapPrimitiveType(schema) {
     return "date";
   }
   if (typeName === z.ZodFirstPartyTypeKind.ZodEnum) {
-    return "string";
+    return "text";
   }
   if (typeName === z.ZodFirstPartyTypeKind.ZodNativeEnum) {
-    return "string";
+    return "text";
   }
   if (typeName === z.ZodFirstPartyTypeKind.ZodLiteral) {
     const literalValue = schema._def.value;
     if (typeof literalValue === "string") {
-      return "string";
+      return "text";
     }
     if (typeof literalValue === "number") {
       return "number";
@@ -185,6 +225,6 @@ export function mapZodToWeaviateProperties(schema) {
 
   const shape = getShape(base);
   return Object.entries(shape).map(([name, propSchema]) =>
-    mapProperty(name, propSchema),
+    mapProperty(mapReservedPropertyName(name), propSchema),
   );
 }
