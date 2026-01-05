@@ -70,6 +70,18 @@ Use AWS CLI discovery to avoid hardcoding Lambda names. Replace `<stage>` and `e
     --queue-url "$(aws sqs get-queue-url --queue-name customer-intel-ITStrategyQueue --output text --query QueueUrl)" \
     --message-body '{"customerDomain":"example.com","subjectType":"customer"}'
   ```
+- Trigger service matching manually (requires an existing IT strategy id):
+  ```bash
+  aws sqs send-message \
+    --queue-url "$(aws sqs get-queue-url --queue-name customer-intel-ServiceMatchingQueue --output text --query QueueUrl)" \
+    --message-body '{"customerDomain":"example.com","subjectType":"customer","customerLegalName":"Example Co","itStrategyId":"example.com","vendorCatalogVectorStoreId":"vs_123"}'
+  ```
+- Trigger sales meeting prep manually (requires an existing service matching id):
+  ```bash
+  aws sqs send-message \
+    --queue-url "$(aws sqs get-queue-url --queue-name customer-intel-SalesMeetingPrepQueue --output text --query QueueUrl)" \
+    --message-body '{"customerDomain":"example.com","subjectType":"customer","customerLegalName":"Example Co","itStrategyId":"example.com","serviceMatchingId":"example.com"}'
+  ```
 
 ## Processing flow
 1. **Master data entrypoint** (`src/handler/masterdata/call.downstream.js`, `MasterDataCallDownStreamHandler`): validates the request (including `customerDomain` + `subjectType`, defaulting to a `customer`), generates company master data via OpenAI when missing, stores it in Weaviate, and enqueues the enriched request on `AssessmentQueue`.
@@ -80,7 +92,7 @@ Use AWS CLI discovery to avoid hardcoding Lambda names. Replace `<stage>` and `e
 4. **News fanout subscriber** (`src/handler/news/subscribe.fanout.js`): generates company news items (annotated with `customerDomain` and `subjectType`), stores new entries, and sends downloadable sources to `DownloadQueue` with `{ customerDomain, domain, subjectType, url, fallback, vectorStore: "news/<domain>", type: "news" }`.
 5. **Vector store loader** (`src/handler/loadintovectorstore/subscribe.poll.js`): downloads each URL (or builds markdown fallbacks), uploads files to OpenAI, ensures the target vector store exists, then uses `vectorStores.fileBatches.createAndPoll` to wait for ingestion before enqueueing `MarketAnalysisQueue` with `customerDomain`, `subjectType`, `industries`, `markets`, `legalName`, `domain`, and `vectorStoreId`.
 6. **Market analysis subscriber** (`src/handler/marketanalysis/subscribe.downstream.js`): fetches or generates market analysis using news signals from the provided `vectorStoreId` via the OpenAI `file_search` tool, stores it, and links it back to the master data record.
-7. **Competition analysis subscriber** (`src/handler/competitionanalysis/subscribe.downstream.js`): combines market analysis context for customer and competitor, generates a comparative analysis, stores it, and links it to both master data records.
+7. **Competition analysis subscriber** (`src/handler/competitionanalysis/subscribe.downstream.js`): combines market analysis context for customer and competitor, generates a comparative analysis, stores it, links it to both master data records, and enqueues IT strategy generation.
 8. **IT strategy subscriber** (`src/handler/itstrategy/subscribe.downstream.js`, `ITStrategyQueue`): loads master data, market analysis, competition analyses, and evidence from Weaviate, generates an IT strategy document (no vendors), stores it, links it to the master record, and enqueues service matching.
 9. **Service matching subscriber** (`src/handler/servicematching/subscribe.downstream.js`, `ServiceMatchingQueue`): fetches the IT strategy and master data, queries the vendor catalog vector store via `file_search`, generates service matches, stores them, links to master data, and enqueues sales meeting preparation.
 10. **Sales meeting prep subscriber** (`src/handler/salesmeetingprep/subscribe.downstream.js`, `SalesMeetingPrepQueue`): compiles the executive briefing, hypotheses, questions, impulses, and POC ideas using master data, IT strategy, and service matching outputs; stores the result and links it to the master record.

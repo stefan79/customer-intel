@@ -62,9 +62,92 @@ Output rules:
 const model = Model.competitionAnalysis;
 const PARSE_RETRY_INSTRUCTIONS =
   "Return a single valid JSON object only. Ensure all strings are properly escaped and do not include raw newlines.";
+const MAX_MARKET_ANALYSIS_CHARS = 3500;
+
+function truncateText(text, maxChars) {
+  if (typeof text !== "string") {
+    return "";
+  }
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, maxChars)}...`;
+}
+
+function extractJsonObject(text) {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) {
+    throw new Error("Response did not contain a JSON object.");
+  }
+  return text.slice(start, end + 1);
+}
+
+function escapeControlCharsInJsonStrings(text) {
+  let result = "";
+  let inString = false;
+  let escaped = false;
+
+  for (const char of text) {
+    if (inString) {
+      if (escaped) {
+        result += char;
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        result += char;
+        escaped = true;
+        continue;
+      }
+      if (char === "\"") {
+        result += char;
+        inString = false;
+        continue;
+      }
+      if (char === "\n") {
+        result += "\\n";
+        continue;
+      }
+      if (char === "\r") {
+        result += "\\r";
+        continue;
+      }
+      if (char === "\t") {
+        result += "\\t";
+        continue;
+      }
+      result += char;
+      continue;
+    }
+
+    if (char === "\"") {
+      inString = true;
+    }
+    result += char;
+  }
+
+  return result;
+}
+
+function parseJsonWithEscapedStrings(raw, schema) {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
+    throw new Error("OpenAI response did not include any JSON content.");
+  }
+  const jsonPayload = extractJsonObject(trimmed);
+  const escaped = escapeControlCharsInJsonStrings(jsonPayload);
+  return schema.parse(JSON.parse(escaped));
+}
 
 export default async function generateCompetitionAnalysis(request) {
-  const req = requestValidator(request);
+  const raw = requestValidator(request);
+  const req = {
+    ...raw,
+    customerMarketAnalysis: truncateText(raw.customerMarketAnalysis, MAX_MARKET_ANALYSIS_CHARS),
+    competitorMarketAnalysis: truncateText(raw.competitorMarketAnalysis, MAX_MARKET_ANALYSIS_CHARS),
+  };
   const prompt = generatePrompt(promptTemplate, { req });
 
   const baseRequest = {
@@ -86,7 +169,10 @@ export default async function generateCompetitionAnalysis(request) {
     parsed = response.output_parsed;
   } catch (error) {
     const message = error?.message ?? "";
-    const shouldRetry = message.includes("Unterminated string in JSON");
+    const shouldRetry =
+      message.includes("Unterminated string in JSON") ||
+      message.includes("Unexpected token") ||
+      message.includes("JSON");
     if (!shouldRetry) {
       throw error;
     }
@@ -94,11 +180,11 @@ export default async function generateCompetitionAnalysis(request) {
       ...prompt,
       instructions: `${prompt.instructions}\n\n${PARSE_RETRY_INSTRUCTIONS}`,
     };
-    const response = await oc.responses.parse({
+    const response = await oc.responses.create({
       ...baseRequest,
       ...retryPrompt,
     });
-    parsed = response.output_parsed;
+    parsed = parseJsonWithEscapedStrings(response.output_text, model.zodSchema);
   }
   return {
     ...parsed,

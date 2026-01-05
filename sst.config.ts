@@ -117,7 +117,7 @@ export default $config({
 
     CompetitionAnalysisQueue.subscribe({
       handler: "src/handler/competitionanalysis/subscribe.downstream.handler",
-      link: [OpenAIApiKey, WeaviateAPIKey],
+      link: [OpenAIApiKey, WeaviateAPIKey, ITStrategyQueue],
       environment: {
         WeaviateEndpoint
       }

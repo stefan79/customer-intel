@@ -37,6 +37,14 @@ declare module "sst" {
       "type": "sst.aws.Queue"
       "url": string
     }
+    "ITStrategyQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "ITStrategyQueueDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
     "MarketAnalysisQueue": {
       "type": "sst.aws.Queue"
       "url": string
@@ -58,6 +66,26 @@ declare module "sst" {
       "url": string
     }
     "OpenAIApiKey": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "SalesMeetingPrepQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "SalesMeetingPrepQueueDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "ServiceMatchingQueue": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "ServiceMatchingQueueDLQ": {
+      "type": "sst.aws.Queue"
+      "url": string
+    }
+    "VendorCatalogVectorStoreId": {
       "type": "sst.sst.Secret"
       "value": string
     }

@@ -126,7 +126,7 @@ const itStrategy = z.object({
   strengthAmplification: z.array(z.string().min(1)).describe("Strategies that amplify strengths"),
   weaknessCompensation: z.array(z.string().min(1)).describe("Strategies that compensate weaknesses"),
   newNicheDifferentiation: z.array(z.string().min(1)).describe("Strategies to open new niches"),
-  sources: z.array(z.string().min(1)).optional().describe("Citations backing the strategy document"),
+  sources: z.array(z.string().min(1)).describe("Citations backing the strategy document"),
 }).describe("IT strategy document without selling content")
 
 const serviceMatch = z.object({
@@ -134,7 +134,7 @@ const serviceMatch = z.object({
   supportingServices: z.array(z.string().min(1)).describe("Services that support the strategy"),
   valueContribution: z.string().min(1).describe("Why the service fits the strategy"),
   entryLevelEngagementIdeas: z.array(z.string().min(1)).describe("Low-risk engagement ideas"),
-  gaps: z.array(z.string().min(1)).optional().describe("Gaps where no service matches"),
+  gaps: z.array(z.string().min(1)).describe("Gaps where no service matches"),
 }).describe("Service match for a strategy")
 
 const serviceMatching = z.object({
