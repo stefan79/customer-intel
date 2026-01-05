@@ -14,6 +14,7 @@ export default $config({
 
     const WeaviateEndpoint = "https://nzksocuaq92fyttubbseyg.c0.europe-west3.gcp.weaviate.cloud"
     const WeaviateAPIKey = new sst.Secret("WeaviateAPIKey")
+    const VendorCatalogVectorStoreId = new sst.Secret("VendorCatalogVectorStoreId")
 
     const maxReceiveCount = 1
 
@@ -23,6 +24,9 @@ export default $config({
     const CompetitionAnalysisQueueDLQ = new sst.aws.Queue("CompetitionAnalysisQueueDLQ", {})
     const NewsQueueDLQ = new sst.aws.Queue("NewsQueueDLQ", {})
     const DownloadQueueDLQ = new sst.aws.Queue("DownloadQueueDLQ", {})
+    const ITStrategyQueueDLQ = new sst.aws.Queue("ITStrategyQueueDLQ", {})
+    const ServiceMatchingQueueDLQ = new sst.aws.Queue("ServiceMatchingQueueDLQ", {})
+    const SalesMeetingPrepQueueDLQ = new sst.aws.Queue("SalesMeetingPrepQueueDLQ", {})
 
     const AssessmentQueue = new sst.aws.Queue("AssessmentQueue", {
       dlq: {
@@ -62,6 +66,27 @@ export default $config({
     const DownloadQueue = new sst.aws.Queue("DownloadQueue", {
       dlq: {
         queue: DownloadQueueDLQ.arn,
+        retry: maxReceiveCount,
+      },
+    });
+
+    const ITStrategyQueue = new sst.aws.Queue("ITStrategyQueue", {
+      dlq: {
+        queue: ITStrategyQueueDLQ.arn,
+        retry: maxReceiveCount,
+      },
+    });
+
+    const ServiceMatchingQueue = new sst.aws.Queue("ServiceMatchingQueue", {
+      dlq: {
+        queue: ServiceMatchingQueueDLQ.arn,
+        retry: maxReceiveCount,
+      },
+    });
+
+    const SalesMeetingPrepQueue = new sst.aws.Queue("SalesMeetingPrepQueue", {
+      dlq: {
+        queue: SalesMeetingPrepQueueDLQ.arn,
         retry: maxReceiveCount,
       },
     });
@@ -110,6 +135,30 @@ export default $config({
       handler: "src/handler/loadintovectorstore/subscribe.poll.handler",
       timeout: "900 seconds",
       link: [OpenAIApiKey, WeaviateAPIKey, MarketAnalysisQueue],
+      environment: {
+        WeaviateEndpoint
+      }
+    })
+
+    ITStrategyQueue.subscribe({
+      handler: "src/handler/itstrategy/subscribe.downstream.handler",
+      link: [OpenAIApiKey, WeaviateAPIKey, ServiceMatchingQueue, VendorCatalogVectorStoreId],
+      environment: {
+        WeaviateEndpoint
+      }
+    })
+
+    ServiceMatchingQueue.subscribe({
+      handler: "src/handler/servicematching/subscribe.downstream.handler",
+      link: [OpenAIApiKey, WeaviateAPIKey, SalesMeetingPrepQueue, VendorCatalogVectorStoreId],
+      environment: {
+        WeaviateEndpoint
+      }
+    })
+
+    SalesMeetingPrepQueue.subscribe({
+      handler: "src/handler/salesmeetingprep/subscribe.downstream.handler",
+      link: [OpenAIApiKey, WeaviateAPIKey],
       environment: {
         WeaviateEndpoint
       }
