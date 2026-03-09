@@ -80,6 +80,8 @@ export async function generateReport(
     add(`## POC Ideas\n`);
     for (const poc of salesPrep.pocIdeas) {
       add(`### ${poc.title}\n`);
+      add(`> **Derived from:** ${poc.linkedImpulseTitle}`);
+      add(`> **IS → TO BE Gap:** ${poc.isToBeGap}\n`);
       add(`**Why:** ${poc.why}\n`);
       add(`**How:** ${poc.how}\n`);
       add(`**Success Factors:**`);

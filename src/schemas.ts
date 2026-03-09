@@ -388,32 +388,44 @@ const pocIdeaSchema = z
       .string()
       .min(1)
       .describe("Short title for the POC"),
+    linkedImpulseTitle: z
+      .string()
+      .min(1)
+      .describe(
+        "Title of the strategic impulse this POC derives from — must exactly match one of the strategicImpulses titles",
+      ),
+    isToBeGap: z
+      .string()
+      .min(1)
+      .describe(
+        "The specific IS→TO BE gap this POC bridges: what the customer likely does today (IS, from industryStandard research) vs what leaders do (TO BE, from leaderPractices research). Be concrete — name the current practice and the frontier practice.",
+      ),
     why: z
       .string()
       .min(1)
       .describe(
-        "WHY this POC was suggested — what problem or opportunity it addresses, grounded in the customer's specific context and the analysis",
+        "WHY this POC was suggested — what problem or opportunity it addresses, grounded in the IS→TO BE gap identified above and the customer's specific context",
       ),
     how: z
       .string()
       .min(1)
       .describe(
-        "HOW to make this POC awesome — the approach, key ingredients, what makes it compelling and low-risk yet impactful",
+        "HOW to make this POC awesome — the approach, key ingredients, what makes it compelling and low-risk yet impactful. Account for caveats (regulatory, compliance, operational constraints) identified in the linked impulse's research.",
       ),
     successFactors: z
       .array(successFactorSchema)
       .min(1)
       .describe(
-        "Success factors with backing: each factor states the metric AND how we ensure it is achieved",
+        "Success factors with backing: each factor states the metric AND how we ensure it is achieved. Align with analyst recommendations from the linked impulse's research where possible.",
       ),
     bottomLine: z
       .string()
       .min(1)
       .describe(
-        "WHO benefits (customers, partners, internal teams) and HOW if this POC succeeds and gets rolled out as a mature feature. Paint the picture of the end-state value.",
+        "WHO benefits (customers, partners, internal teams) and HOW if this POC succeeds and gets rolled out as a mature feature. Reference what leaders achieve (from leaderPractices) as evidence for what's possible.",
       ),
   })
-  .describe("POC idea with WHY/HOW/SUCCESS/BOTTOM-LINE reasoning");
+  .describe("POC idea anchored to a specific strategic impulse's IS→TO BE research gap");
 
 export const salesMeetingPrepSchema = z
   .object({

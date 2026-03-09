@@ -148,12 +148,19 @@ const scoredPocSchema = z.object({
     .describe(
       "How unique and well-backed are the success factors? 5 = differentiated metrics with concrete mechanisms, 1 = generic KPIs anyone could list",
     ),
+  researchGrounding: z
+    .number()
+    .min(1)
+    .max(5)
+    .describe(
+      "How well does this POC connect to impulse research? 5 = explicitly cites IS→TO BE gap with specific data points from research, names leader companies, and addresses caveats. 3 = references the impulse theme but vaguely, without specific IS/TO BE data. 1 = could have been written without any research — generic suggestion loosely themed.",
+    ),
   compositeScore: z
     .number()
     .min(1)
     .max(10)
     .describe(
-      "Overall score (1-10) combining novelty, bottom-line strength, and success factor quality. Used for ranking.",
+      "Overall score (1-10) combining novelty, bottom-line strength, success factor quality, AND research grounding. A POC with weak research grounding should be penalized even if otherwise strong. Used for ranking.",
     ),
 });
 
@@ -378,34 +385,39 @@ Return your findings structured into the four dimensions. Include all source URL
   // ════════════════════════════════════════════════════════
   log("phase-3", "Generating 8-10 POC candidates using researched impulses as context...");
 
-  // Build impulse research summary for POC generation context
-  const impulseResearchContext = researchedImpulses
+  // Build structured per-impulse blocks (used in Phase 3 and Phase 5)
+  const numberedImpulseBlocks = researchedImpulses
     .map(
-      (imp) =>
-        `### ${imp.title}
-**WHY:** ${imp.why}
-**HOW:** ${imp.how}
-**WHAT:** ${imp.what}
-**Industry Standard (IS):** ${imp.industryStandard}
-**Leader Practices (TO BE):** ${imp.leaderPractices}
-**Caveats:** ${imp.caveats}
-**Analyst View:** ${imp.analystView}
-**Sources:** ${imp.sources.join(", ")}`,
+      (imp, idx) =>
+        `═══ IMPULSE ${idx + 1}: "${imp.title}" ═══
+WHY: ${imp.why}
+HOW: ${imp.how}
+WHAT: ${imp.what}
+
+RESEARCH FINDINGS:
+• IS (current standard): ${imp.industryStandard}
+• TO BE (leader frontier): ${imp.leaderPractices}
+• CAVEATS: ${imp.caveats}
+• ANALYST VIEW: ${imp.analystView}
+• SOURCES: ${imp.sources.join(", ")}`,
     )
     .join("\n\n");
 
   const withPocs = await callAgent<SalesMeetingPrep>({
-    systemPrompt: `You are a senior sales engineer generating POC ideas for a customer meeting. You have access to thoroughly researched strategic impulses — each with industry standard (IS), leader practices (TO BE), caveats, and analyst recommendations backed by web sources.
+    systemPrompt: `You are a senior sales engineer generating POC ideas for a customer meeting. You have access to ${researchedImpulses.length} thoroughly researched strategic impulses — each with industry standard (IS), leader practices (TO BE), caveats, and analyst recommendations backed by web sources.
 
-Your job: generate 8-10 POC ideas that are grounded in the research findings. Each POC should:
-1. Reference the IS→TO BE gap from a specific impulse's research — what does the customer currently do (IS) vs what leaders do (TO BE)? The POC should bridge this gap.
-2. Account for caveats identified in the research — regulatory constraints, compliance requirements, operational barriers.
-3. Align success factors with what analysts recommend — if Gartner says "measure X", the POC should measure X.
-4. Paint a bottom line that reflects what leaders achieve — use the leader practices as evidence for what's possible.
+Your job: generate 1-2 POC ideas PER impulse (${researchedImpulses.length} impulses = 8-10 total POCs). Each POC MUST:
+
+1. Set linkedImpulseTitle to the EXACT title of the impulse it derives from.
+2. Set isToBeGap to a concrete statement: "Today [company/industry] does [specific IS practice]. Leaders like [specific company] do [specific TO BE practice]. This POC bridges that gap by [mechanism]."
+3. Ground the WHY in the specific IS→TO BE gap — not a vague theme. The reader should see the direct research-to-POC connection.
+4. Account for caveats in the HOW — if a regulation, compliance requirement, or operational constraint was identified in the impulse's research, the HOW must address it explicitly.
+5. Align success factors with analyst recommendations — if the impulse's analyst view recommends measuring something specific, the POC should measure it.
+6. Use leader practices as evidence in the bottom line — "Leader Y achieves Z, proving this is viable at scale."
 
 CRITICAL: The impulses and their research fields are ALREADY FINAL. Return them EXACTLY as provided — do not modify any impulse field. Your only job is to add the pocIdeas array.
 
-IMPORTANT: Generate 8-10 POC ideas. Cast a wide net — include cross-domain intersections, competitive gap exploits, and ideas that would make the CTO say "we haven't thought of that." We will score and filter them later.`,
+Every POC must be traceable to a specific impulse's research. A POC that could have been written without reading the research is a failure.`,
     userPrompt: `Context (frozen):
 - Customer: ${input.customerLegalName} (${input.customerDomain}) subjectType=${input.subjectType}
 
@@ -418,8 +430,8 @@ ${draft.capabilityBaseline}
 COMPETITIVE LANDSCAPE:
 ${competitionHighlights}
 
-RESEARCHED STRATEGIC IMPULSES (with industry research findings):
-${impulseResearchContext}
+RESEARCHED STRATEGIC IMPULSES (each with IS/TO BE/caveats/analyst research — generate 1-2 POCs per impulse):
+${numberedImpulseBlocks}
 
 IT STRATEGIES (approved):
 ${JSON.stringify(input.itStrategy.strategies.map((s) => ({ name: s.name, intent: s.intent, competitiveRationale: s.competitiveRationale })), null, 2)}
@@ -427,22 +439,24 @@ ${JSON.stringify(input.itStrategy.strategies.map((s) => ({ name: s.name, intent:
 SERVICE MATCHES:
 ${JSON.stringify(input.serviceMatching.matches.map((m) => ({ strategyName: m.strategyName, supportingServices: m.supportingServices })), null, 2)}
 
-Generate 8-10 POC ideas grounded in the researched impulses above. For each POC:
-- title: short name
-- why: WHY this POC — reference the specific IS→TO BE gap from the impulse research. What competitive gap or emerging opportunity triggered it?
-- how: HOW to make it awesome — the approach, key ingredients. Account for caveats (regulatory, compliance, operational constraints) identified in the research.
-- successFactors: each has a metric AND howToEnsure. Align with analyst recommendations where possible.
-- bottomLine: WHO benefits and HOW when this becomes a mature feature. Reference leader practices as evidence for what's achievable.
+Generate 1-2 POC ideas PER impulse (8-10 total). For each POC:
+- linkedImpulseTitle: EXACT title of the parent impulse (must match one of the impulse titles above)
+- isToBeGap: "Today [practice from IS research]. Leaders like [company from TO BE research] do [frontier practice]. This POC bridges that gap by [mechanism]."
+- why: WHY this POC — grounded in the isToBeGap above and the customer's competitive situation
+- how: HOW to make it awesome — account for caveats from the impulse research (name the specific regulation/constraint and how the POC addresses it)
+- successFactors: each has metric AND howToEnsure. If the impulse's analyst view recommends specific measures, use them.
+- bottomLine: WHO benefits and HOW at scale. Cite leader companies from the TO BE research as evidence.
 
 RULES:
 - Every POC must go BEYOND the capability baseline.
-- Prefer cross-domain POCs at the intersection of two strategy themes.
-- Reference specific competitive gaps and research findings.
+- Every POC must be TRACEABLE to a specific impulse's research — no generic suggestions.
+- Prefer cross-domain POCs at the intersection of two impulse themes.
+- Reference specific competitive gaps and research findings by name.
 - No generic sales language.
 - Do not introduce services not in the service matching output.
 - POCs must be exploratory and low-risk.
 - For success factors: don't just say "reduce cost by 15%" — explain HOW that is measured and ensured.
-- For bottom line: think through the value chain. Paint the end-state picture.
+- For bottom line: think through the value chain. Paint the end-state picture with evidence from leader practices.
 
 IMPORTANT: Return the COMPLETE sales meeting prep output. Carry forward ALL fields from the draft exactly as-is:
 - id = "${input.customerDomain}"
@@ -478,6 +492,14 @@ ${JSON.stringify({
     `Done: ${withPocs.pocIdeas.length} POC candidates generated using researched impulses`,
   );
 
+  // Validate that every POC links to a real impulse
+  const impulseTitleSet = new Set(researchedImpulses.map((i) => i.title));
+  for (const poc of withPocs.pocIdeas) {
+    if (!impulseTitleSet.has(poc.linkedImpulseTitle)) {
+      log("phase-3", `  WARNING: POC "${poc.title}" links to unknown impulse "${poc.linkedImpulseTitle}"`);
+    }
+  }
+
   // Ensure the researched impulses are preserved exactly (agent may have modified them)
   const result: SalesMeetingPrep = {
     ...withPocs,
@@ -492,7 +514,8 @@ ${JSON.stringify({
   const pocsForScoring = result.pocIdeas
     .map(
       (p) =>
-        `[POC] "${p.title}"
+        `[POC] "${p.title}" (linked to impulse: "${p.linkedImpulseTitle}")
+  IS→TO BE GAP: ${p.isToBeGap}
   WHY: ${p.why}
   HOW: ${p.how}
   BOTTOM LINE: ${p.bottomLine}
@@ -507,18 +530,29 @@ ${JSON.stringify({
     )
     .join("\n\n");
 
+  // Build impulse research summaries for cross-referencing during scoring
+  const impulseResearchForScoring = researchedImpulses
+    .map(
+      (imp) =>
+        `[IMPULSE RESEARCH] "${imp.title}":
+  IS: ${imp.industryStandard.substring(0, 300)}
+  TO BE: ${imp.leaderPractices.substring(0, 300)}`,
+    )
+    .join("\n\n");
+
   const scoring = await callAgent({
     systemPrompt: `You are a senior technology executive at a large enterprise. You have seen every vendor pitch. You are allergic to generic suggestions.
 
 Your job: evaluate and rank POC ideas and strategic impulses for a customer meeting.
 
-For POCs, score on three dimensions:
+For POCs, score on four dimensions:
 1. NOVELTY — Is this genuinely beyond what they already have? (KEEP/SHARPEN/REPLACE)
 2. BOTTOM-LINE STRENGTH (1-5) — How compelling is the "who benefits and how" when this becomes a mature feature? 5 = transformative value across multiple stakeholders (customers, partners, operations). 1 = narrow/incremental/obvious benefit.
 3. SUCCESS FACTOR UNIQUENESS (1-5) — Are the success metrics differentiated and well-backed? 5 = specific metrics with concrete measurement mechanisms that show deep domain understanding. 1 = generic KPIs anyone could list without understanding the business.
-4. COMPOSITE SCORE (1-10) — Overall quality combining all three dimensions. Use this for ranking.
+4. RESEARCH GROUNDING (1-5) — Does the POC explicitly connect to the impulse research? Cross-reference the POC's isToBeGap and why fields against the actual impulse research provided below. 5 = states a specific IS→TO BE gap with concrete data points (names current practices AND leader companies/initiatives from research), addresses caveats, aligns success factors with analyst views. 3 = references the impulse theme but vaguely, without citing specific IS/TO BE data from the research. 1 = could have been written without reading the research at all.
+5. COMPOSITE SCORE (1-10) — Overall quality combining all four dimensions. A POC with weak research grounding should be penalized even if otherwise strong. Use this for ranking.
 
-Then select the TOP 3-5 POCs. Drop the weakest. A POC with a strong bottom line and unique success factors should rank higher even if slightly less novel than a POC with a weak bottom line.
+Then select the TOP 3-5 POCs. Drop the weakest. A POC with strong research grounding and a compelling bottom line should rank higher than a vaguely novel one with weak grounding.
 
 For impulses, just assess novelty (KEEP/SHARPEN/REPLACE).
 
@@ -529,13 +563,17 @@ ${result.capabilityBaseline}
 COMPETITIVE LANDSCAPE:
 ${competitionHighlights}
 
+IMPULSE RESEARCH (use to cross-reference POC research grounding — does the POC actually cite this data?):
+${impulseResearchForScoring}
+
 POC CANDIDATES TO SCORE AND RANK:
 ${pocsForScoring}
 
 IMPULSES TO VALIDATE:
 ${impulsesForScoring}
 
-Score each POC on all three dimensions. Then recommend the top 3-5 POCs by composite score. Drop the rest.
+Score each POC on all four dimensions (novelty, bottom-line strength, success factor uniqueness, research grounding). For research grounding, compare each POC's isToBeGap against the actual impulse research above — does it cite real data from the research or is it generic?
+Then recommend the top 3-5 POCs by composite score. Drop the rest.
 For impulses, provide novelty verdicts only.`,
     outputSchema: scoringResultSchema,
     outputToolName: "save_scoring",
@@ -564,7 +602,7 @@ For impulses, provide novelty verdicts only.`,
     const selected = keptPocTitles.has(poc.title) ? "✓" : "✗";
     log(
       "phase-4",
-      `  ${selected} [${poc.compositeScore}/10] "${poc.title}" (BL:${poc.bottomLineStrength} SF:${poc.successFactorUniqueness} ${poc.noveltyVerdict})`,
+      `  ${selected} [${poc.compositeScore}/10] "${poc.title}" (BL:${poc.bottomLineStrength} SF:${poc.successFactorUniqueness} RG:${poc.researchGrounding} ${poc.noveltyVerdict})`,
     );
   }
 
@@ -594,11 +632,13 @@ For impulses, provide novelty verdicts only.`,
     .join("\n");
 
   const failedPocs = needsImprovementPocs
-    .map(
-      (v) =>
-        `"${v.title}" — ${v.noveltyVerdict}: ${v.noveltyReasoning} (BL:${v.bottomLineStrength}/5, SF:${v.successFactorUniqueness}/5)`,
-    )
-    .join("\n");
+    .map((v) => {
+      const originalPoc = selectedPocs.find((p) => p.title === v.title);
+      return `"${v.title}" — ${v.noveltyVerdict}: ${v.noveltyReasoning} (BL:${v.bottomLineStrength}/5, SF:${v.successFactorUniqueness}/5, RG:${v.researchGrounding}/5)
+    Linked impulse: "${originalPoc?.linkedImpulseTitle ?? "unknown"}"
+    Original IS→TO BE gap: ${originalPoc?.isToBeGap ?? "not specified"}`;
+    })
+    .join("\n\n");
 
   const keptImpulseTitles = scoring.impulseScores
     .filter((v) => v.noveltyVerdict === "KEEP")
@@ -616,9 +656,10 @@ For impulses, provide novelty verdicts only.`,
 Rules:
 - Items marked SHARPEN: keep the core direction but add specific competitive context, tighter scope, or a concrete integration point. Strengthen the bottom line and success factor backing.
 - Items marked REPLACE: generate a completely new suggestion using competitive gaps, cross-domain intersections, or emerging opportunities visible in the data.
-- Items that passed (KEEP): return them unchanged — preserve ALL fields exactly, including research fields (industryStandard, leaderPractices, caveats, analystView, sources) on impulses.
+- Items that passed (KEEP): return them unchanged — preserve ALL fields exactly, including research fields (industryStandard, leaderPractices, caveats, analystView, sources) on impulses and linkedImpulseTitle/isToBeGap on POCs.
 - All suggestions must go beyond the capability baseline.
 - Reference specific competitor data where possible.
+- For POCs: every POC MUST have a valid linkedImpulseTitle and a concrete isToBeGap that cites specific IS and TO BE practices from the impulse research. POCs with low research grounding scores need the isToBeGap strengthened with specific company names, practices, and data points from the research.
 - For POCs: ensure the bottom line paints a vivid end-state picture and success factors have concrete backing mechanisms.
 - For impulses that need improvement: you MUST populate the research fields (industryStandard, leaderPractices, caveats, analystView, sources) based on your knowledge. Be specific and substantive.`,
     userPrompt: `CAPABILITY BASELINE:
@@ -629,6 +670,9 @@ ${assessmentSummary}
 
 COMPETITIVE LANDSCAPE:
 ${competitionHighlights}
+
+RESEARCHED STRATEGIC IMPULSES (use to ground regenerated POCs — every POC must cite specific IS/TO BE data):
+${numberedImpulseBlocks}
 
 CUSTOMER MARKET ANALYSIS:
 ${input.customerMarketAnalysis.substring(0, 2000)}
