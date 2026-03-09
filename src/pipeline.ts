@@ -379,9 +379,9 @@ Revenue: ~${assessment.revenueInMio.value}M EUR`;
       customerContext,
     );
 
-    const finalReportPath = join(outputDir, domain, "report-final.md");
-    await writeFile(finalReportPath, annotatedReport, "utf-8");
-    log("review", `Report with inline review: ${finalReportPath}`);
+    // Overwrite the original report with the reviewed version (single output file)
+    await writeFile(reportPath, annotatedReport, "utf-8");
+    log("review", `Report updated with review feedback: ${reportPath}`);
   } else {
     log("review", "No actionable issues found, original report stands.");
   }
@@ -391,9 +391,6 @@ Revenue: ~${assessment.revenueInMio.value}M EUR`;
   console.log(`  Pipeline complete in ${elapsed}s`);
   console.log(`  Output: ${outputDir}/${domain}/`);
   console.log(`  Report: ${reportPath}`);
-  if (hasActionableIssues) {
-    console.log(`  Reviewed: ${join(outputDir, domain, "report-final.md")}`);
-  }
   console.log(`  Review:  ${reviewPackPath}`);
   console.log(`========================================\n`);
 }

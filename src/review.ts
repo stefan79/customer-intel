@@ -469,11 +469,60 @@ CHANGE NOTES — this is critical:
 - For removed items, add: _Removed ([issue-id]): One sentence explaining why this was dropped._
 - Items that were not changed get NO change note.
 
+CRITICAL — OUTPUT FORMAT FOR EACH SECTION:
+
+For Strategic Hypotheses: use numbered list items (1. 2. 3. etc.)
+
+For Questions to Ask: use bullet list items (- question text)
+
+For Strategic Impulses, each impulse MUST use this EXACT structure — output ONE version per impulse, merging review improvements into the full research-backed format:
+
+### [Title]
+
+**Why:** [improved if needed, otherwise keep original]
+
+**How:** [improved if needed, otherwise keep original]
+
+**What:** [improved if needed, otherwise keep original]
+
+**Industry Standard (IS):** [KEEP AS-IS from original — do not omit]
+
+**Leader Practices (TO BE):** [KEEP AS-IS from original — do not omit]
+
+**Caveats:** [keep as-is, or strengthen if review found additional caveats]
+
+**Analyst View:** [KEEP AS-IS from original — do not omit]
+
+*Sources: [KEEP AS-IS from original]*
+
+_Updated ([issue-id]): change note_ [only if this impulse was changed]
+
+For POC Ideas, each POC MUST use this EXACT structure — output ONE version per POC:
+
+### [Title]
+
+> **Derived from:** [KEEP from original]
+> **IS → TO BE Gap:** [KEEP from original]
+
+**Why:** [improved if needed]
+
+**How:** [improved if needed]
+
+**Success Factors:**
+- **[metric]**
+  _How we ensure this:_ [mechanism]
+
+**Bottom Line:** [improved if needed]
+
+_Updated ([issue-id]): change note_ [only if this POC was changed]
+
+CRITICAL: Output exactly ONE version of each item. Do NOT output a shortened version followed by the original research-backed version — that causes duplication. Merge ALL review improvements directly into the full research-backed structure above. Every field from the original must appear in your output.
+
 Quality rules:
 - Do not invent customer facts. Only use information from the report and review findings.
 - The regenerated content should read as a polished, customer-ready document — not a draft with tracked changes.
-- Maintain the original markdown structure (numbered lists for hypotheses, bullet lists for questions/impulses, ### subsections for POC ideas).
-- Keep the same level of detail or better. Do not truncate content.
+- Keep the same level of detail or better. Do not truncate or omit any fields.
+- All ### subsection titles must use ### (not ## or #).
 - Open questions from the review should be woven into VALIDATE_FIRST items as "needs validation" notes, not listed separately.`,
     userPrompt: `Regenerate the four strategic sections incorporating the review findings.
 
