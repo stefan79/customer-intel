@@ -335,8 +335,37 @@ const strategicImpulseSchema = z
       .describe(
         "WHAT the expected outcome or impact is — what changes if the customer pursues this, what they gain",
       ),
+    industryStandard: z
+      .string()
+      .min(1)
+      .describe(
+        "IS state — current industry standard practice. What most companies in this segment at this scale do today in this area.",
+      ),
+    leaderPractices: z
+      .string()
+      .min(1)
+      .describe(
+        "TO BE state — what leaders and innovators in this segment are doing. The frontier. Name specific companies and initiatives where possible.",
+      ),
+    caveats: z
+      .string()
+      .min(1)
+      .describe(
+        "Regulatory, compliance, data privacy, or operational constraints to consider when pursuing this impulse.",
+      ),
+    analystView: z
+      .string()
+      .min(1)
+      .describe(
+        "What industry analysts (Gartner, Forrester, McKinsey, IDC, etc.) and advisors recommend in this area. Reference specific reports or frameworks where possible.",
+      ),
+    sources: z
+      .array(z.string().min(1))
+      .describe("URLs backing the research findings for this impulse"),
   })
-  .describe("A strategic impulse with WHY/HOW/WHAT reasoning");
+  .describe(
+    "A strategic impulse with WHY/HOW/WHAT reasoning and web-research-backed IS/TO-BE/caveats/analyst views",
+  );
 
 const successFactorSchema = z
   .object({

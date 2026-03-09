@@ -65,6 +65,13 @@ export async function generateReport(
       add(`**Why:** ${impulse.why}\n`);
       add(`**How:** ${impulse.how}\n`);
       add(`**What:** ${impulse.what}\n`);
+      add(`**Industry Standard (IS):** ${impulse.industryStandard}\n`);
+      add(`**Leader Practices (TO BE):** ${impulse.leaderPractices}\n`);
+      add(`**Caveats:** ${impulse.caveats}\n`);
+      add(`**Analyst View:** ${impulse.analystView}\n`);
+      if (impulse.sources.length > 0) {
+        add(`*Sources: ${impulse.sources.join(", ")}*\n`);
+      }
     }
   }
 
@@ -249,6 +256,11 @@ export async function generateReport(
   }
   for (const ca of competitionAnalyses) {
     ca.sources.forEach((s) => allSources.add(s));
+  }
+  if (salesPrep) {
+    for (const impulse of salesPrep.strategicImpulses) {
+      impulse.sources.forEach((s) => allSources.add(s));
+    }
   }
   for (const source of allSources) {
     add(`- ${source}`);
